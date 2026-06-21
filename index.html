@@ -11,7 +11,7 @@
   :root{
     --ink:#2c2a3d;
     --ink-soft:#7d7894;
-    --paper:#faf7f2;
+    --paper:#eef0f4;
     --card:#ffffff;
     --line:#ece7dd;
     --todo:#ff8a5b;
@@ -90,7 +90,9 @@
   .small-link{color:var(--ink-soft);font-size:.82rem;text-decoration:underline;margin-top:4px;}
 
   /* ---------- 主畫面 ---------- */
-  #appView{display:none;min-height:100vh;flex-direction:column;}
+  #appView{display:none;min-height:100vh;flex-direction:column;
+    max-width:440px;width:100%;margin:0 auto;
+    background:var(--card);box-shadow:0 0 40px rgba(44,42,61,.06);}
   #appView.show{display:flex;}
 
   .topbar{
@@ -145,8 +147,9 @@
 
   .item-list{display:flex;flex-direction:column;gap:10px;}
   .item{
-    display:flex;align-items:center;gap:12px;background:var(--card);
-    padding:13px 14px;border-radius:14px;box-shadow:var(--shadow);
+    display:flex;align-items:center;gap:12px;background:#f7f8fa;
+    border:1px solid var(--line);
+    padding:13px 14px;border-radius:14px;
     animation:popin .25s ease;
   }
   @keyframes popin{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
@@ -177,10 +180,9 @@
   .cal-dow{text-align:center;font-size:.72rem;color:var(--ink-soft);font-weight:700;padding-bottom:4px;}
   .cal-cell{
     aspect-ratio:1;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    font-size:.8rem;font-weight:600;background:var(--card);position:relative;color:var(--ink);
-    box-shadow:0 2px 6px rgba(44,42,61,.05);
+    font-size:.8rem;font-weight:600;background:#f7f8fa;border:1px solid var(--line);position:relative;color:var(--ink);
   }
-  .cal-cell.empty{background:transparent;box-shadow:none;}
+  .cal-cell.empty{background:transparent;border:none;}
   .cal-cell.today{outline:2px solid var(--todo);outline-offset:-2px;}
   .cal-cell .dots{display:flex;gap:3px;margin-top:3px;}
   .cal-cell .dot{width:5px;height:5px;border-radius:50%;}
@@ -188,7 +190,7 @@
   .dot.wish{background:var(--wish);}
   .cal-cell.selected{background:var(--ink);color:#fff;}
 
-  .day-detail{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:16px;}
+  .day-detail{background:#f7f8fa;border:1px solid var(--line);border-radius:16px;padding:16px;}
   .day-detail h3{font-size:.95rem;font-weight:800;margin-bottom:10px;}
   .day-detail .dgroup{margin-bottom:12px;}
   .day-detail .dgroup-title{font-size:.78rem;color:var(--ink-soft);font-weight:700;margin-bottom:6px;}
