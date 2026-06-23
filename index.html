@@ -126,8 +126,12 @@
   .list-toggle button.active.wish{background:var(--wish);color:#fff;}
 
   .add-row{display:flex;gap:8px;margin-bottom:16px;}
-  .add-row input{
+  .add-row #itemInput{
     flex:1;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;font-size:.92rem;background:var(--card);
+  }
+  .add-row #goalInput{
+    width:62px;padding:12px 8px;border:1.5px solid var(--line);border-radius:12px;
+    font-size:.85rem;background:var(--card);text-align:center;flex-shrink:0;
   }
   .add-row input:focus{outline:none;border-color:var(--todo);}
   .add-row button{
@@ -153,8 +157,16 @@
   .item.done .check{background:var(--green);border-color:var(--green);}
   .check svg{width:14px;height:14px;opacity:0;transition:.15s;}
   .item.done .check svg{opacity:1;}
-  .item-text{flex:1;font-size:.92rem;line-height:1.4;word-break:break-word;}
+  .item-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;}
+  .item-text{font-size:.92rem;line-height:1.4;word-break:break-word;}
   .item.done .item-text{color:var(--ink-soft);text-decoration:line-through;}
+  /* 進度條（每月習慣） */
+  .goal-wrap{display:flex;align-items:center;gap:8px;}
+  .goal-bar{flex:1;height:6px;border-radius:99px;background:#e6e2da;overflow:hidden;}
+  .goal-fill{height:100%;background:var(--todo);border-radius:99px;transition:width .3s ease;}
+  .goal-fill.reached{background:var(--green);}
+  .goal-text{font-size:.74rem;font-weight:700;color:var(--ink-soft);font-family:"Baloo 2",sans-serif;white-space:nowrap;}
+  .goal-text.reached{color:var(--green);}
   .item-del{color:var(--ink-soft);font-size:1.1rem;padding:4px;flex-shrink:0;}
   .empty-state{text-align:center;color:var(--ink-soft);font-size:.85rem;padding:50px 20px;line-height:1.8;}
   .empty-state .em{font-size:2rem;display:block;margin-bottom:8px;}
@@ -283,6 +295,7 @@
 
     <div class="add-row">
       <input type="text" id="itemInput" placeholder="新增一件事...">
+      <input type="number" id="goalInput" min="1" max="31" placeholder="次/月">
       <button id="addBtn">＋</button>
     </div>
 
@@ -300,7 +313,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc,
-  collection, query, orderBy, onSnapshot, serverTimestamp, addDoc
+  collection, query, orderBy, onSnapshot, serverTimestamp, addDoc, deleteField
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ⭐ 請把你的 Firebase 設定貼在這裡 ⭐
@@ -437,6 +450,7 @@ function enterSpace(spaceId){
   $("spaceView").classList.remove("show");
   $("appView").classList.add("show");
   $("menuCode").textContent = spaceId;
+  switchList("todo");
   listenItems();
   renderCalendar();
 }
@@ -470,22 +484,39 @@ function switchList(type){
   activeList = type;
   $("toggleTodo").classList.toggle("active", type==="todo");
   $("toggleWish").classList.toggle("active", type==="wish");
+  // 願望不用設每月次數
+  $("goalInput").style.display = type === "todo" ? "block" : "none";
+  $("itemInput").placeholder = type === "todo" ? "新增要做的事..." : "新增一個願望...";
   renderItems();
 }
 
 $("addBtn").onclick = addItem;
 $("itemInput").onkeydown = (e) => { if(e.key === "Enter") addItem(); };
+$("goalInput").onkeydown = (e) => { if(e.key === "Enter") addItem(); };
 
 async function addItem(){
   const input = $("itemInput");
   const text = input.value.trim();
   if(!text) return;
+  const goal = activeList === "todo" ? (parseInt($("goalInput").value) || 0) : 0;
   input.value = "";
+  $("goalInput").value = "";
   await addDoc(collection(db, "spaces", currentSpaceId, "items"), {
     text, type: activeList, done: false,
+    goal,            // 一個月目標幾次（0 = 沒設定）
+    checkins: {},    // 每天打卡記錄 { "2026-06-21": true }
     createdAt: serverTimestamp(),
     doneAt: null
   });
+}
+
+// 今天的日期字串
+function todayKey(){ return ymd(new Date()); }
+// 這件事這個月打了幾次卡
+function monthCount(item, year, month){
+  if(!item.checkins) return 0;
+  const prefix = `${year}-${String(month+1).padStart(2,"0")}`;
+  return Object.keys(item.checkins).filter(k => k.startsWith(prefix) && item.checkins[k]).length;
 }
 
 function listenItems(){
@@ -507,27 +538,64 @@ function renderItems(){
     list.innerHTML = `<div class="empty-state"><span class="em">${activeList==="todo"?"📌":"⭐"}</span>${activeList==="todo"?"還沒有要做的事，新增一件吧":"還沒有想做的事，新增一個願望吧"}</div>`;
     return;
   }
+  const now = new Date();
+  const tKey = todayKey();
   list.innerHTML = "";
   filtered.forEach(item => {
+    const isHabit = item.goal && item.goal > 0;
+    let checkedNow, mainHtml;
+
+    if(isHabit){
+      // 習慣模式：看今天有沒有打卡
+      checkedNow = !!(item.checkins && item.checkins[tKey]);
+      const count = monthCount(item, now.getFullYear(), now.getMonth());
+      const pct = Math.min(100, Math.round(count / item.goal * 100));
+      const reached = count >= item.goal;
+      mainHtml = `
+        <div class="item-text">${esc(item.text)}</div>
+        <div class="goal-wrap">
+          <div class="goal-bar"><div class="goal-fill ${reached?'reached':''}" style="width:${pct}%"></div></div>
+          <div class="goal-text ${reached?'reached':''}">${count}/${item.goal}次${reached?' 🎉':''}</div>
+        </div>`;
+    }else{
+      // 簡單模式：一次性完成
+      checkedNow = !!item.done;
+      mainHtml = `<div class="item-text">${esc(item.text)}</div>`;
+    }
+
     const div = document.createElement("div");
-    div.className = `item ${item.type} ${item.done ? "done":""}`;
+    div.className = `item ${item.type} ${checkedNow ? "done":""}`;
     div.innerHTML = `
-      <button class="check" data-id="${item.id}" data-done="${item.done}">
+      <button class="check" data-id="${item.id}" data-habit="${isHabit}" data-checked="${checkedNow}">
         <svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
-      <div class="item-text">${esc(item.text)}</div>
+      <div class="item-main">${mainHtml}</div>
       <button class="item-del" data-del="${item.id}">🗑️</button>
     `;
     list.appendChild(div);
   });
+
   list.querySelectorAll(".check").forEach(btn => {
     btn.onclick = async () => {
       const id = btn.dataset.id;
-      const done = btn.dataset.done === "true";
-      await updateDoc(doc(db, "spaces", currentSpaceId, "items", id), {
-        done: !done,
-        doneAt: !done ? serverTimestamp() : null
-      });
+      const isHabit = btn.dataset.habit === "true";
+      const checked = btn.dataset.checked === "true";
+      const ref = doc(db, "spaces", currentSpaceId, "items", id);
+      if(isHabit){
+        // 今天打卡 / 取消打卡
+        const tKey2 = todayKey();
+        if(checked){
+          await updateDoc(ref, { [`checkins.${tKey2}`]: deleteField() });
+        }else{
+          await updateDoc(ref, { [`checkins.${tKey2}`]: true });
+          toast("今天打卡 ✅");
+        }
+      }else{
+        await updateDoc(ref, {
+          done: !checked,
+          doneAt: !checked ? serverTimestamp() : null
+        });
+      }
     };
   });
   list.querySelectorAll("[data-del]").forEach(btn => {
@@ -552,11 +620,35 @@ $("nextMonth").onclick = () => { calDate.setMonth(calDate.getMonth()+1); renderC
 function ymd(date){
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
 }
-function itemDateKey(item){
-  // 用完成日期分類；若未完成則用建立日期（讓「今天新增的」也看得到）
-  const ts = item.done && item.doneAt ? item.doneAt : item.createdAt;
-  if(!ts || !ts.toDate) return null;
-  return ymd(ts.toDate());
+
+// 建立「每一天有沒有事」的表
+function buildDayMap(){
+  const map = {};
+  const mark = (key, type) => {
+    if(!key) return;
+    if(!map[key]) map[key] = { todo:false, wish:false };
+    map[key][type] = true;
+  };
+  allItems.forEach(item => {
+    // 習慣：每個打卡日都算
+    if(item.checkins){
+      Object.keys(item.checkins).forEach(k => { if(item.checkins[k]) mark(k, item.type); });
+    }
+    // 一次性完成：用完成日期
+    if((!item.goal || item.goal === 0) && item.done && item.doneAt && item.doneAt.toDate){
+      mark(ymd(item.doneAt.toDate()), item.type);
+    }
+  });
+  return map;
+}
+
+// 某一天有打卡或完成的項目
+function itemsOnDay(key){
+  return allItems.filter(item => {
+    if(item.checkins && item.checkins[key]) return true;
+    if((!item.goal || item.goal === 0) && item.done && item.doneAt && item.doneAt.toDate && ymd(item.doneAt.toDate()) === key) return true;
+    return false;
+  });
 }
 
 function renderCalendar(){
@@ -570,13 +662,7 @@ function renderCalendar(){
   const todayKey = ymd(new Date());
 
   // 統計每天有什麼
-  const dayMap = {};
-  allItems.forEach(item => {
-    const key = itemDateKey(item);
-    if(!key) return;
-    if(!dayMap[key]) dayMap[key] = { todo:false, wish:false };
-    dayMap[key][item.type] = true;
-  });
+  const dayMap = buildDayMap();
 
   const grid = $("calGrid");
   grid.innerHTML = "";
@@ -619,7 +705,7 @@ function renderCalendar(){
 
 function renderDayDetail(key){
   const detail = $("dayDetail");
-  const dayItems = allItems.filter(item => itemDateKey(item) === key);
+  const dayItems = itemsOnDay(key);
   const dateObj = new Date(key + "T00:00:00");
   const label = `${dateObj.getMonth()+1}月${dateObj.getDate()}日`;
 
@@ -634,14 +720,14 @@ function renderDayDetail(key){
   if(todos.length){
     html += `<div class="dgroup"><div class="dgroup-title">📌 要做的事</div>`;
     todos.forEach(i => {
-      html += `<div class="ditem ${i.done?'done':''}"><span class="dot todo"></span>${esc(i.text)}</div>`;
+      html += `<div class="ditem done"><span class="dot todo"></span>${esc(i.text)}</div>`;
     });
     html += `</div>`;
   }
   if(wishes.length){
     html += `<div class="dgroup"><div class="dgroup-title">⭐ 想做的事</div>`;
     wishes.forEach(i => {
-      html += `<div class="ditem ${i.done?'done':''}"><span class="dot wish"></span>${esc(i.text)}</div>`;
+      html += `<div class="ditem done"><span class="dot wish"></span>${esc(i.text)}</div>`;
     });
     html += `</div>`;
   }
