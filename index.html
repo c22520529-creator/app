@@ -172,19 +172,41 @@
   .empty-state .em{font-size:2rem;display:block;margin-bottom:8px;}
 
   /* 日曆頁 */
-  /* 成員列 */
+  /* 看大家 */
   .members-bar{
-    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
     background:#f7f8fa;border:1px solid var(--line);border-radius:14px;
     padding:10px 14px;margin-bottom:14px;
   }
-  .members-bar .mtitle{font-size:.8rem;font-weight:800;color:var(--ink);}
+  .members-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .members-bar .mtitle{font-size:.85rem;font-weight:800;color:var(--ink);}
   .members-bar .mcount{font-size:.78rem;color:var(--ink-soft);font-weight:700;}
-  .members-bar .mlist{display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;}
-  .member{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:3px 10px 3px 3px;}
-  .member img{width:24px;height:24px;border-radius:50%;object-fit:cover;}
-  .member .mname{font-size:.78rem;font-weight:600;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .member .mavatar-fallback{width:24px;height:24px;border-radius:50%;background:var(--wish);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;}
+  .members-bar .mlist{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .member{
+    display:flex;align-items:center;gap:6px;background:var(--card);
+    border:1.5px solid var(--line);border-radius:99px;padding:3px 12px 3px 3px;
+    transition:.15s;cursor:pointer;
+  }
+  .member:active{transform:scale(.96);}
+  .member.active{border-color:var(--wish);background:var(--wish-soft);}
+  .member img{width:26px;height:26px;border-radius:50%;object-fit:cover;}
+  .member .mname{font-size:.8rem;font-weight:700;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .member .mavatar-fallback{width:26px;height:26px;border-radius:50%;background:var(--wish);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;}
+
+  /* 正在看誰的書 橫條 */
+  .view-banner{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:var(--wish-soft);border:1px solid var(--wish);border-radius:12px;
+    padding:10px 14px;margin-bottom:14px;font-size:.85rem;color:var(--ink);
+  }
+  .view-banner b{color:var(--wish);}
+  .view-banner button{
+    background:var(--ink);color:#fff;border-radius:99px;padding:6px 14px;font-size:.8rem;font-weight:700;flex-shrink:0;
+  }
+  .view-banner button:active{transform:scale(.96);}
+  /* 唯讀打勾（看別人的書） */
+  .view-dot{border:2px solid var(--line);color:transparent;font-weight:700;font-size:.8rem;}
+  .view-dot.done{background:var(--green);border-color:var(--green);color:#fff;}
+  .item.readonly{opacity:.95;}
 
   /* 小月曆 */
   .mini-cal{
@@ -289,8 +311,11 @@
   <!-- 主頁（清單 + 上方小月曆） -->
   <div class="page show" id="listPage">
 
-    <!-- 成員 -->
+    <!-- 看大家 -->
     <div class="members-bar" id="membersBar"></div>
+
+    <!-- 正在看誰的書 -->
+    <div class="view-banner" id="viewBanner" style="display:none;"></div>
 
     <!-- 小月曆 -->
     <div class="mini-cal">
@@ -310,7 +335,7 @@
       <button class="wish" id="toggleWish">⭐ 想做的事</button>
     </div>
 
-    <div class="add-row">
+    <div class="add-row" id="addRow">
       <input type="text" id="itemInput" placeholder="新增一件事...">
       <input type="number" id="goalInput" min="1" max="31" placeholder="次/月">
       <button id="addBtn">＋</button>
@@ -352,6 +377,9 @@ let currentUser = null;
 let currentSpaceId = null;
 let unsubItems = null;
 let unsubSpace = null;
+let viewingUid = null;     // 現在正在看誰的書（預設看自己）
+let viewingName = "";      // 正在看的人的名字
+let spaceMembers = {};     // 這個群組的成員資料 { uid: {name, photo} }
 let activeList = "todo"; // todo | wish
 let calDate = new Date();
 let selectedDay = null;
@@ -401,8 +429,10 @@ onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     $("userAvatar").src = user.photoURL || "";
     const userDoc = await getDoc(doc(db, "users", user.uid));
-    if(userDoc.exists() && userDoc.data().spaceId){
-      enterSpace(userDoc.data().spaceId);
+    const data = userDoc.exists() ? userDoc.data() : {};
+    const gid = data.spaceId || data.groupId;
+    if(gid){
+      enterSpace(gid);
     }else{
       $("loginView").style.display = "none";
       $("spaceView").classList.add("show");
@@ -478,7 +508,10 @@ function enterSpace(spaceId){
   $("spaceView").classList.remove("show");
   $("appView").classList.add("show");
   $("menuCode").textContent = spaceId;
+  viewingUid = currentUser.uid;
+  viewingName = currentUser.displayName || "我";
   switchList("todo");
+  updateViewBanner();
   listenItems();
   listenSpace();
   renderCalendar();
@@ -487,7 +520,7 @@ function enterSpace(spaceId){
 // 監聽本子（成員變動時即時更新）
 function listenSpace(){
   if(unsubSpace) unsubSpace();
-  // 補存自己的名字頭像（舊本子可能還沒存）
+  // 補存自己的名字頭像（舊群組可能還沒存）
   updateDoc(doc(db, "spaces", currentSpaceId), {
     [`memberInfo.${currentUser.uid}`]: {
       name: currentUser.displayName || "我",
@@ -496,6 +529,7 @@ function listenSpace(){
   }).catch(()=>{});
   unsubSpace = onSnapshot(doc(db, "spaces", currentSpaceId), (snap) => {
     if(!snap.exists()) return;
+    spaceMembers = snap.data().memberInfo || {};
     renderMembers(snap.data());
   });
 }
@@ -507,17 +541,55 @@ function renderMembers(spaceData){
   let chips = "";
   members.forEach(uid => {
     const m = info[uid] || {};
-    const name = m.name || "成員";
+    const isMe = uid === currentUser.uid;
+    const name = isMe ? "我" : (m.name || "成員");
     const photo = m.photo || "";
+    const active = uid === viewingUid ? "active" : "";
     const avatar = photo
       ? `<img src="${photo}" alt="">`
-      : `<div class="mavatar-fallback">${esc(name[0] || "?")}</div>`;
-    chips += `<div class="member">${avatar}<span class="mname">${esc(name)}</span></div>`;
+      : `<div class="mavatar-fallback">${esc((m.name||"?")[0] || "?")}</div>`;
+    chips += `<button class="member ${active}" data-uid="${uid}" data-name="${esc(m.name||name)}">${avatar}<span class="mname">${esc(name)}</span></button>`;
   });
   bar.innerHTML = `
-    <span class="mtitle">👥 成員</span>
-    <div class="mlist">${chips}</div>
-    <span class="mcount">共 ${members.length} 人</span>`;
+    <div class="members-head"><span class="mtitle">👀 看大家</span><span class="mcount">共 ${members.length} 人</span></div>
+    <div class="mlist">${chips}</div>`;
+
+  bar.querySelectorAll(".member").forEach(btn => {
+    btn.onclick = () => {
+      const uid = btn.dataset.uid;
+      const name = uid === currentUser.uid ? (currentUser.displayName || "我") : btn.dataset.name;
+      viewItems(uid, name);
+    };
+  });
+}
+
+// 切換看誰的書
+function viewItems(uid, name){
+  viewingUid = uid;
+  viewingName = name;
+  selectedDay = null;
+  listenItems();
+  // 重新畫一次成員列（讓選中的高亮）
+  if(unsubSpace){ /* renderMembers 會在下次 snapshot 更新，但先即時更新高亮 */ }
+  document.querySelectorAll("#membersBar .member").forEach(b=>{
+    b.classList.toggle("active", b.dataset.uid === uid);
+  });
+  updateViewBanner();
+}
+
+// 顯示「正在看誰的書」橫條，並切換能不能編輯
+function updateViewBanner(){
+  const isMe = viewingUid === currentUser.uid;
+  const banner = $("viewBanner");
+  if(isMe){
+    banner.style.display = "none";
+    $("addRow").style.display = "flex";
+  }else{
+    banner.style.display = "flex";
+    banner.innerHTML = `<span>👀 正在看 <b>${esc(viewingName)}</b> 的書（只能看）</span><button id="backToMine">看我自己</button>`;
+    $("addRow").style.display = "none";
+    $("backToMine").onclick = () => viewItems(currentUser.uid, currentUser.displayName || "我");
+  }
 }
 
 // ---------- 選單 ----------
@@ -566,7 +638,7 @@ async function addItem(){
   const goal = activeList === "todo" ? (parseInt($("goalInput").value) || 0) : 0;
   input.value = "";
   $("goalInput").value = "";
-  await addDoc(collection(db, "spaces", currentSpaceId, "items"), {
+  await addDoc(collection(db, "users", currentUser.uid, "items"), {
     text, type: activeList, done: false,
     goal,            // 一個月目標幾次（0 = 沒設定）
     checkins: {},    // 每天打卡記錄 { "2026-06-21": true }
@@ -586,7 +658,8 @@ function monthCount(item, year, month){
 
 function listenItems(){
   if(unsubItems) unsubItems();
-  const q = query(collection(db, "spaces", currentSpaceId, "items"), orderBy("createdAt", "desc"));
+  const who = viewingUid || currentUser.uid;
+  const q = query(collection(db, "users", who, "items"), orderBy("createdAt", "desc"));
   unsubItems = onSnapshot(q, (snap) => {
     allItems = [];
     snap.forEach(d => allItems.push({ id:d.id, ...d.data() }));
@@ -598,9 +671,14 @@ function listenItems(){
 
 function renderItems(){
   const list = $("itemList");
+  const isMe = viewingUid === currentUser.uid;
   const filtered = allItems.filter(i => i.type === activeList);
   if(filtered.length === 0){
-    list.innerHTML = `<div class="empty-state"><span class="em">${activeList==="todo"?"📌":"⭐"}</span>${activeList==="todo"?"還沒有要做的事，新增一件吧":"還沒有想做的事，新增一個願望吧"}</div>`;
+    const who = isMe ? "" : `${esc(viewingName)} `;
+    const emptyMsg = isMe
+      ? (activeList==="todo"?"還沒有要做的事，新增一件吧":"還沒有想做的事，新增一個願望吧")
+      : `${who}這本還沒有${activeList==="todo"?"要做的事":"想做的事"}`;
+    list.innerHTML = `<div class="empty-state"><span class="em">${activeList==="todo"?"📌":"⭐"}</span>${emptyMsg}</div>`;
     return;
   }
   const now = new Date();
@@ -629,23 +707,26 @@ function renderItems(){
     }
 
     const div = document.createElement("div");
-    div.className = `item ${item.type} ${checkedNow ? "done":""}`;
-    div.innerHTML = `
-      <button class="check" data-id="${item.id}" data-habit="${isHabit}" data-checked="${checkedNow}">
-        <svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <div class="item-main">${mainHtml}</div>
-      <button class="item-del" data-del="${item.id}">🗑️</button>
-    `;
+    div.className = `item ${item.type} ${checkedNow ? "done":""} ${isMe?"":"readonly"}`;
+    // 看別人的書：不顯示打勾跟刪除按鈕（只能看）
+    const checkBtn = isMe
+      ? `<button class="check" data-id="${item.id}" data-habit="${isHabit}" data-checked="${checkedNow}">
+           <svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+         </button>`
+      : `<div class="check view-dot ${checkedNow?'done':''}">${checkedNow?'✓':''}</div>`;
+    const delBtn = isMe ? `<button class="item-del" data-del="${item.id}">🗑️</button>` : "";
+    div.innerHTML = `${checkBtn}<div class="item-main">${mainHtml}</div>${delBtn}`;
     list.appendChild(div);
   });
+
+  if(!isMe) return; // 看別人的書，不綁定編輯事件
 
   list.querySelectorAll(".check").forEach(btn => {
     btn.onclick = async () => {
       const id = btn.dataset.id;
       const isHabit = btn.dataset.habit === "true";
       const checked = btn.dataset.checked === "true";
-      const ref = doc(db, "spaces", currentSpaceId, "items", id);
+      const ref = doc(db, "users", currentUser.uid, "items", id);
       if(isHabit){
         // 今天打卡 / 取消打卡
         const tKey2 = todayKey();
@@ -665,7 +746,7 @@ function renderItems(){
   });
   list.querySelectorAll("[data-del]").forEach(btn => {
     btn.onclick = async () => {
-      await deleteDoc(doc(db, "spaces", currentSpaceId, "items", btn.dataset.del));
+      await deleteDoc(doc(db, "users", currentUser.uid, "items", btn.dataset.del));
       toast("刪掉了");
     };
   });
