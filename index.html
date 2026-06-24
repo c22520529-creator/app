@@ -9,19 +9,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink:#4a3b2d;
-    --ink-soft:#a4917b;
-    --paper:#f3ecdd;
-    --card:#fbf7ee;
-    --line:#e7dcc6;
-    --todo:#c08a4a;
-    --todo-soft:#f3e7d2;
-    --wish:#a9786a;
-    --wish-soft:#f0e2db;
-    --gold:#cba14e;
-    --green:#7d9a5b;
+    --ink:#1f3a5f;
+    --ink-soft:#7e9bbd;
+    --paper:#eef5fc;
+    --card:#ffffff;
+    --line:#d6e6f5;
+    --todo:#3b8fe0;
+    --todo-soft:#dcecfb;
+    --wish:#5bb4d4;
+    --wish-soft:#dcf0f7;
+    --gold:#f0b53d;
+    --green:#3bae8c;
     --radius:18px;
-    --shadow:0 8px 24px rgba(74,59,45,.08);
+    --shadow:0 8px 24px rgba(31,58,95,.10);
     font-size:16px;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -127,7 +127,7 @@
 
   .item-list{display:flex;flex-direction:column;gap:10px;}
   .item{
-    display:flex;align-items:center;gap:12px;background:#f6efe1;
+    display:flex;align-items:center;gap:12px;background:#f4f9fe;
     border:1px solid var(--line);
     padding:13px 14px;border-radius:14px;
     animation:popin .25s ease;
@@ -147,7 +147,7 @@
   .item.done .item-text{color:var(--ink-soft);text-decoration:line-through;}
   /* 進度條（每月習慣） */
   .goal-wrap{display:flex;align-items:center;gap:8px;}
-  .goal-bar{flex:1;height:6px;border-radius:99px;background:#e7dcc6;overflow:hidden;}
+  .goal-bar{flex:1;height:6px;border-radius:99px;background:#d6e6f5;overflow:hidden;}
   .goal-fill{height:100%;background:var(--todo);border-radius:99px;transition:width .3s ease;}
   .goal-fill.reached{background:var(--green);}
   .goal-text{font-size:.74rem;font-weight:700;color:var(--ink-soft);font-family:"Baloo 2",sans-serif;white-space:nowrap;}
@@ -159,7 +159,7 @@
   /* 日曆頁 */
   /* 看大家 */
   .members-bar{
-    background:#f6efe1;border:1px solid var(--line);border-radius:14px;
+    background:#f4f9fe;border:1px solid var(--line);border-radius:14px;
     padding:10px 14px;margin-bottom:14px;
   }
   .members-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
@@ -195,7 +195,7 @@
 
   /* 小月曆 */
   .mini-cal{
-    background:#f6efe1;border:1px solid var(--line);border-radius:16px;
+    background:#f4f9fe;border:1px solid var(--line);border-radius:16px;
     padding:12px 14px;margin-bottom:14px;
   }
   .cal-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px;}
@@ -219,7 +219,7 @@
   .dot.wish{background:var(--wish);}
   .cal-cell.selected{background:var(--ink);color:#fff;}
 
-  .day-detail{background:#f6efe1;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px;}
+  .day-detail{background:#f4f9fe;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px;}
   .day-detail h3{font-size:.95rem;font-weight:800;margin-bottom:10px;}
   .day-detail .dgroup{margin-bottom:12px;}
   .day-detail .dgroup-title{font-size:.78rem;color:var(--ink-soft);font-weight:700;margin-bottom:6px;}
@@ -240,13 +240,13 @@
 
   /* 彈窗 */
   .modal-overlay{
-    position:fixed;inset:0;background:rgba(74,59,45,.4);
+    position:fixed;inset:0;background:rgba(31,58,95,.4);
     display:none;align-items:center;justify-content:center;padding:18px;z-index:200;
   }
   .modal-overlay.show{display:flex;}
   .modal{
     background:var(--card);border-radius:22px;padding:22px;width:100%;max-width:420px;
-    max-height:90vh;overflow-y:auto;box-shadow:0 20px 50px rgba(74,59,45,.25);
+    max-height:90vh;overflow-y:auto;box-shadow:0 20px 50px rgba(31,58,95,.25);
     animation:modalin .25s ease;
   }
   @keyframes modalin{from{opacity:0;transform:translateY(20px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}
