@@ -172,6 +172,20 @@
   .empty-state .em{font-size:2rem;display:block;margin-bottom:8px;}
 
   /* 日曆頁 */
+  /* 成員列 */
+  .members-bar{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    background:#f7f8fa;border:1px solid var(--line);border-radius:14px;
+    padding:10px 14px;margin-bottom:14px;
+  }
+  .members-bar .mtitle{font-size:.8rem;font-weight:800;color:var(--ink);}
+  .members-bar .mcount{font-size:.78rem;color:var(--ink-soft);font-weight:700;}
+  .members-bar .mlist{display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;}
+  .member{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:3px 10px 3px 3px;}
+  .member img{width:24px;height:24px;border-radius:50%;object-fit:cover;}
+  .member .mname{font-size:.78rem;font-weight:600;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .member .mavatar-fallback{width:24px;height:24px;border-radius:50%;background:var(--wish);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;}
+
   /* 小月曆 */
   .mini-cal{
     background:#f7f8fa;border:1px solid var(--line);border-radius:16px;
@@ -275,6 +289,9 @@
   <!-- 主頁（清單 + 上方小月曆） -->
   <div class="page show" id="listPage">
 
+    <!-- 成員 -->
+    <div class="members-bar" id="membersBar"></div>
+
     <!-- 小月曆 -->
     <div class="mini-cal">
       <div class="cal-head">
@@ -334,6 +351,7 @@ const provider = new GoogleAuthProvider();
 let currentUser = null;
 let currentSpaceId = null;
 let unsubItems = null;
+let unsubSpace = null;
 let activeList = "todo"; // todo | wish
 let calDate = new Date();
 let selectedDay = null;
@@ -418,7 +436,13 @@ $("createBtn").onclick = async () => {
   await setDoc(doc(db, "spaces", code), {
     createdBy: currentUser.uid,
     createdAt: serverTimestamp(),
-    members: [currentUser.uid]
+    members: [currentUser.uid],
+    memberInfo: {
+      [currentUser.uid]: {
+        name: currentUser.displayName || "我",
+        photo: currentUser.photoURL || ""
+      }
+    }
   });
   await setDoc(doc(db, "users", currentUser.uid), { spaceId: code }, { merge: true });
   enterSpace(code);
@@ -437,9 +461,13 @@ $("joinBtn").onclick = async () => {
   }
   const data = snap.data();
   const members = data.members || [];
-  if(!members.includes(currentUser.uid)){
-    await updateDoc(doc(db, "spaces", code), { members: [...members, currentUser.uid] });
-  }
+  await updateDoc(doc(db, "spaces", code), {
+    members: members.includes(currentUser.uid) ? members : [...members, currentUser.uid],
+    [`memberInfo.${currentUser.uid}`]: {
+      name: currentUser.displayName || "我",
+      photo: currentUser.photoURL || ""
+    }
+  });
   await setDoc(doc(db, "users", currentUser.uid), { spaceId: code }, { merge: true });
   enterSpace(code);
 };
@@ -452,7 +480,44 @@ function enterSpace(spaceId){
   $("menuCode").textContent = spaceId;
   switchList("todo");
   listenItems();
+  listenSpace();
   renderCalendar();
+}
+
+// 監聽本子（成員變動時即時更新）
+function listenSpace(){
+  if(unsubSpace) unsubSpace();
+  // 補存自己的名字頭像（舊本子可能還沒存）
+  updateDoc(doc(db, "spaces", currentSpaceId), {
+    [`memberInfo.${currentUser.uid}`]: {
+      name: currentUser.displayName || "我",
+      photo: currentUser.photoURL || ""
+    }
+  }).catch(()=>{});
+  unsubSpace = onSnapshot(doc(db, "spaces", currentSpaceId), (snap) => {
+    if(!snap.exists()) return;
+    renderMembers(snap.data());
+  });
+}
+
+function renderMembers(spaceData){
+  const bar = $("membersBar");
+  const members = spaceData.members || [];
+  const info = spaceData.memberInfo || {};
+  let chips = "";
+  members.forEach(uid => {
+    const m = info[uid] || {};
+    const name = m.name || "成員";
+    const photo = m.photo || "";
+    const avatar = photo
+      ? `<img src="${photo}" alt="">`
+      : `<div class="mavatar-fallback">${esc(name[0] || "?")}</div>`;
+    chips += `<div class="member">${avatar}<span class="mname">${esc(name)}</span></div>`;
+  });
+  bar.innerHTML = `
+    <span class="mtitle">👥 成員</span>
+    <div class="mlist">${chips}</div>
+    <span class="mcount">共 ${members.length} 人</span>`;
 }
 
 // ---------- 選單 ----------
