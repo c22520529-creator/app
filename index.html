@@ -9,19 +9,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink:#2c2a3d;
-    --ink-soft:#7d7894;
-    --paper:#eef0f4;
-    --card:#ffffff;
-    --line:#ece7dd;
-    --todo:#ff8a5b;
-    --todo-soft:#fff0e6;
-    --wish:#6a8eff;
-    --wish-soft:#eaf0ff;
-    --gold:#f4b740;
-    --green:#3fae6a;
+    --ink:#4a3b2d;
+    --ink-soft:#a4917b;
+    --paper:#f3ecdd;
+    --card:#fbf7ee;
+    --line:#e7dcc6;
+    --todo:#c08a4a;
+    --todo-soft:#f3e7d2;
+    --wish:#a9786a;
+    --wish-soft:#f0e2db;
+    --gold:#cba14e;
+    --green:#7d9a5b;
     --radius:18px;
-    --shadow:0 8px 24px rgba(44,42,61,.08);
+    --shadow:0 8px 24px rgba(74,59,45,.08);
     font-size:16px;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -125,24 +125,9 @@
   .list-toggle button.active.todo{background:var(--todo);color:#fff;}
   .list-toggle button.active.wish{background:var(--wish);color:#fff;}
 
-  .add-row{display:flex;gap:8px;margin-bottom:16px;}
-  .add-row #itemInput{
-    flex:1;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;font-size:.92rem;background:var(--card);
-  }
-  .add-row #goalInput{
-    width:62px;padding:12px 8px;border:1.5px solid var(--line);border-radius:12px;
-    font-size:.85rem;background:var(--card);text-align:center;flex-shrink:0;
-  }
-  .add-row input:focus{outline:none;border-color:var(--todo);}
-  .add-row button{
-    width:46px;height:46px;border-radius:12px;background:var(--ink);color:#fff;
-    font-size:1.3rem;font-weight:700;flex-shrink:0;
-  }
-  .add-row button:active{transform:scale(.94);}
-
   .item-list{display:flex;flex-direction:column;gap:10px;}
   .item{
-    display:flex;align-items:center;gap:12px;background:#f7f8fa;
+    display:flex;align-items:center;gap:12px;background:#f6efe1;
     border:1px solid var(--line);
     padding:13px 14px;border-radius:14px;
     animation:popin .25s ease;
@@ -162,7 +147,7 @@
   .item.done .item-text{color:var(--ink-soft);text-decoration:line-through;}
   /* 進度條（每月習慣） */
   .goal-wrap{display:flex;align-items:center;gap:8px;}
-  .goal-bar{flex:1;height:6px;border-radius:99px;background:#e6e2da;overflow:hidden;}
+  .goal-bar{flex:1;height:6px;border-radius:99px;background:#e7dcc6;overflow:hidden;}
   .goal-fill{height:100%;background:var(--todo);border-radius:99px;transition:width .3s ease;}
   .goal-fill.reached{background:var(--green);}
   .goal-text{font-size:.74rem;font-weight:700;color:var(--ink-soft);font-family:"Baloo 2",sans-serif;white-space:nowrap;}
@@ -174,7 +159,7 @@
   /* 日曆頁 */
   /* 看大家 */
   .members-bar{
-    background:#f7f8fa;border:1px solid var(--line);border-radius:14px;
+    background:#f6efe1;border:1px solid var(--line);border-radius:14px;
     padding:10px 14px;margin-bottom:14px;
   }
   .members-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
@@ -210,7 +195,7 @@
 
   /* 小月曆 */
   .mini-cal{
-    background:#f7f8fa;border:1px solid var(--line);border-radius:16px;
+    background:#f6efe1;border:1px solid var(--line);border-radius:16px;
     padding:12px 14px;margin-bottom:14px;
   }
   .cal-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px;}
@@ -234,7 +219,7 @@
   .dot.wish{background:var(--wish);}
   .cal-cell.selected{background:var(--ink);color:#fff;}
 
-  .day-detail{background:#f7f8fa;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px;}
+  .day-detail{background:#f6efe1;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px;}
   .day-detail h3{font-size:.95rem;font-weight:800;margin-bottom:10px;}
   .day-detail .dgroup{margin-bottom:12px;}
   .day-detail .dgroup-title{font-size:.78rem;color:var(--ink-soft);font-weight:700;margin-bottom:6px;}
@@ -244,6 +229,74 @@
   .day-detail .ditem .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
   .day-detail .ditem.done{color:var(--ink-soft);text-decoration:line-through;}
   .day-empty{color:var(--ink-soft);font-size:.82rem;text-align:center;padding:14px;}
+
+  /* toast */
+  /* 新增按鈕 */
+  .add-open-btn{
+    width:100%;padding:14px;border-radius:14px;background:var(--todo);color:#fff;
+    font-size:1rem;font-weight:800;margin-bottom:16px;box-shadow:var(--shadow);transition:.15s;
+  }
+  .add-open-btn:active{transform:scale(.98);}
+
+  /* 彈窗 */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(74,59,45,.4);
+    display:none;align-items:center;justify-content:center;padding:18px;z-index:200;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal{
+    background:var(--card);border-radius:22px;padding:22px;width:100%;max-width:420px;
+    max-height:90vh;overflow-y:auto;box-shadow:0 20px 50px rgba(74,59,45,.25);
+    animation:modalin .25s ease;
+  }
+  @keyframes modalin{from{opacity:0;transform:translateY(20px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}
+  .modal-title{font-size:1.1rem;font-weight:900;margin-bottom:16px;}
+  .m-input{
+    width:100%;padding:13px 14px;border:1.5px solid var(--line);border-radius:12px;
+    font-size:.95rem;background:var(--paper);color:var(--ink);
+  }
+  .m-input:focus{outline:none;border-color:var(--todo);}
+  .m-label{font-size:.82rem;font-weight:800;color:var(--ink-soft);margin:16px 0 8px;}
+  .seg-pick{display:flex;gap:8px;}
+  .seg-opt{
+    flex:1;padding:12px 0;border-radius:12px;font-weight:700;font-size:.88rem;
+    background:var(--paper);border:1.5px solid var(--line);color:var(--ink-soft);transition:.15s;
+  }
+  .seg-opt.active{background:var(--todo);border-color:var(--todo);color:#fff;}
+  .unit-pick{display:flex;gap:8px;flex-wrap:wrap;}
+  .unit-opt{
+    flex:1;min-width:60px;padding:11px 0;border-radius:11px;font-weight:700;font-size:.86rem;
+    background:var(--paper);border:1.5px solid var(--line);color:var(--ink);transition:.15s;
+  }
+  .unit-opt.active{background:var(--todo-soft);border-color:var(--todo);color:var(--todo);}
+  .num-row{display:flex;gap:10px;align-items:stretch;}
+  .num-step{
+    width:54px;border-radius:12px;background:var(--paper);border:1.5px solid var(--line);
+    font-size:1.4rem;font-weight:700;color:var(--ink);flex-shrink:0;
+  }
+  .num-step.plus{background:var(--todo);border-color:var(--todo);color:#fff;}
+  .num-step:active{transform:scale(.95);}
+  .num-big{
+    flex:1;text-align:center;border:1.5px solid var(--line);border-radius:12px;
+    font-size:1.6rem;font-weight:800;font-family:"Baloo 2",sans-serif;background:var(--paper);color:var(--ink);
+  }
+  .num-big:focus{outline:none;border-color:var(--todo);}
+  .quick-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .quick{
+    flex:1;min-width:48px;padding:9px 0;border-radius:10px;font-weight:700;font-size:.86rem;
+    background:var(--paper);border:1.5px solid var(--line);color:var(--ink);font-family:"Baloo 2",sans-serif;
+  }
+  .quick:active{background:var(--todo-soft);}
+  .modal-btns{display:flex;gap:10px;margin-top:22px;}
+  .m-cancel{
+    flex:1;padding:14px;border-radius:14px;background:var(--paper);border:1.5px solid var(--line);
+    font-weight:800;font-size:.95rem;color:var(--ink);
+  }
+  .m-ok{
+    flex:2;padding:14px;border-radius:14px;background:var(--todo);color:#fff;
+    font-weight:800;font-size:.95rem;
+  }
+  .m-cancel:active,.m-ok:active{transform:scale(.98);}
 
   /* toast */
   #toast{
@@ -335,13 +388,54 @@
       <button class="wish" id="toggleWish">⭐ 想做的事</button>
     </div>
 
-    <div class="add-row" id="addRow">
-      <input type="text" id="itemInput" placeholder="新增一件事...">
-      <input type="number" id="goalInput" min="1" max="31" placeholder="次/月">
-      <button id="addBtn">＋</button>
-    </div>
+    <button class="add-open-btn" id="addRow">＋ 新增</button>
 
     <div class="item-list" id="itemList"></div>
+  </div>
+</div>
+
+<!-- 新增彈窗 -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">📌 新增要做的事</div>
+
+    <input type="text" id="mText" class="m-input" placeholder="例：運動、讀完一本書...">
+
+    <div class="m-label">目標類型</div>
+    <div class="seg-pick">
+      <button class="seg-opt active" id="typeHabit">◎ 月度循環</button>
+      <button class="seg-opt" id="typeOnce">◎ 一次性目標</button>
+    </div>
+
+    <div id="habitFields">
+      <div class="m-label">單位</div>
+      <div class="unit-pick">
+        <button class="unit-opt active" data-unit="次">次</button>
+        <button class="unit-opt" data-unit="h">h</button>
+        <button class="unit-opt" data-unit="個">個</button>
+        <button class="unit-opt custom" id="unitCustom">自訂</button>
+      </div>
+      <input type="text" id="mUnitCustom" class="m-input" placeholder="自己打單位..." style="display:none;margin-top:8px;">
+
+      <div class="m-label">目標數值（每月）</div>
+      <div class="num-row">
+        <button class="num-step" id="numMinus">−</button>
+        <input type="number" id="mGoal" class="num-big" value="1" min="1">
+        <button class="num-step plus" id="numPlus">＋</button>
+      </div>
+      <div class="quick-row">
+        <button class="quick" data-v="5">5</button>
+        <button class="quick" data-v="10">10</button>
+        <button class="quick" data-v="15">15</button>
+        <button class="quick" data-v="20">20</button>
+        <button class="quick" data-v="30">30</button>
+      </div>
+    </div>
+
+    <div class="modal-btns">
+      <button class="m-cancel" id="mCancel">取消</button>
+      <button class="m-ok" id="mCreate">建立</button>
+    </div>
   </div>
 </div>
 
@@ -583,7 +677,7 @@ function updateViewBanner(){
   const banner = $("viewBanner");
   if(isMe){
     banner.style.display = "none";
-    $("addRow").style.display = "flex";
+    $("addRow").style.display = "block";
   }else{
     banner.style.display = "flex";
     banner.innerHTML = `<span>👀 正在看 <b>${esc(viewingName)}</b> 的書（只能看）</span><button id="backToMine">看我自己</button>`;
@@ -621,30 +715,88 @@ function switchList(type){
   activeList = type;
   $("toggleTodo").classList.toggle("active", type==="todo");
   $("toggleWish").classList.toggle("active", type==="wish");
-  // 願望不用設每月次數
-  $("goalInput").style.display = type === "todo" ? "block" : "none";
-  $("itemInput").placeholder = type === "todo" ? "新增要做的事..." : "新增一個願望...";
+  $("addRow").textContent = type === "todo" ? "＋ 新增要做的事" : "＋ 新增想做的事";
   renderItems();
 }
 
-$("addBtn").onclick = addItem;
-$("itemInput").onkeydown = (e) => { if(e.key === "Enter") addItem(); };
-$("goalInput").onkeydown = (e) => { if(e.key === "Enter") addItem(); };
+// ---------- 新增彈窗 ----------
+let modalType = "habit"; // habit | once
+let modalUnit = "次";
 
-async function addItem(){
-  const input = $("itemInput");
-  const text = input.value.trim();
-  if(!text) return;
-  const goal = activeList === "todo" ? (parseInt($("goalInput").value) || 0) : 0;
-  input.value = "";
-  $("goalInput").value = "";
+$("addRow").onclick = openAddModal;
+
+function openAddModal(){
+  // 看別人的書時不能新增（理論上按鈕已隱藏，雙重保險）
+  if(viewingUid !== currentUser.uid) return;
+  $("modalTitle").textContent = activeList === "todo" ? "📌 新增要做的事" : "⭐ 新增想做的事";
+  $("mText").value = "";
+  $("mText").placeholder = activeList === "todo" ? "例：運動、讀完一本書..." : "例：去看海、學吉他...";
+  $("mGoal").value = 1;
+  $("mUnitCustom").value = "";
+  $("mUnitCustom").style.display = "none";
+  setModalType("habit");
+  setUnit("次");
+  $("addModal").classList.add("show");
+  setTimeout(()=>$("mText").focus(), 100);
+}
+function closeAddModal(){ $("addModal").classList.remove("show"); }
+
+function setModalType(t){
+  modalType = t;
+  $("typeHabit").classList.toggle("active", t==="habit");
+  $("typeOnce").classList.toggle("active", t==="once");
+  // 一次性目標：不需要每月次數那些欄位
+  $("habitFields").style.display = t==="habit" ? "block" : "none";
+}
+$("typeHabit").onclick = () => setModalType("habit");
+$("typeOnce").onclick = () => setModalType("once");
+
+function setUnit(u){
+  modalUnit = u;
+  document.querySelectorAll(".unit-opt").forEach(b=>{
+    b.classList.toggle("active", b.dataset.unit === u);
+  });
+  $("unitCustom").classList.toggle("active", u==="__custom__");
+}
+document.querySelectorAll(".unit-opt[data-unit]").forEach(btn=>{
+  btn.onclick = () => { $("mUnitCustom").style.display="none"; setUnit(btn.dataset.unit); };
+});
+$("unitCustom").onclick = () => {
+  setUnit("__custom__");
+  $("mUnitCustom").style.display = "block";
+  $("mUnitCustom").focus();
+};
+
+// 數值加減 + 快捷
+$("numMinus").onclick = () => { $("mGoal").value = Math.max(1, (parseInt($("mGoal").value)||1) - 1); };
+$("numPlus").onclick  = () => { $("mGoal").value = (parseInt($("mGoal").value)||0) + 1; };
+document.querySelectorAll(".quick").forEach(btn=>{
+  btn.onclick = () => { $("mGoal").value = btn.dataset.v; };
+});
+
+$("mCancel").onclick = closeAddModal;
+$("addModal").onclick = (e) => { if(e.target.id === "addModal") closeAddModal(); };
+
+$("mCreate").onclick = async () => {
+  const text = $("mText").value.trim();
+  if(!text){ $("mText").focus(); return; }
+
+  let goal = 0, unit = "";
+  if(modalType === "habit"){
+    goal = parseInt($("mGoal").value) || 0;
+    unit = modalUnit === "__custom__" ? ($("mUnitCustom").value.trim() || "次") : modalUnit;
+  }
+
   await addDoc(collection(db, "users", currentUser.uid, "items"), {
     text, type: activeList, done: false,
-    goal,            // 一個月目標幾次（0 = 沒設定）
-    checkins: {},    // 每天打卡記錄 { "2026-06-21": true }
+    goal,            // 每月目標（0 = 一次性）
+    unit,            // 單位（次 / h / 個 / 自訂）
+    checkins: {},
     createdAt: serverTimestamp(),
     doneAt: null
   });
+  closeAddModal();
+  toast("新增好了 ✨");
 }
 
 // 今天的日期字串
@@ -698,7 +850,7 @@ function renderItems(){
         <div class="item-text">${esc(item.text)}</div>
         <div class="goal-wrap">
           <div class="goal-bar"><div class="goal-fill ${reached?'reached':''}" style="width:${pct}%"></div></div>
-          <div class="goal-text ${reached?'reached':''}">${count}/${item.goal}次${reached?' 🎉':''}</div>
+          <div class="goal-text ${reached?'reached':''}">${count}/${item.goal}${esc(item.unit||"次")}${reached?' 🎉':''}</div>
         </div>`;
     }else{
       // 簡單模式：一次性完成
