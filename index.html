@@ -101,7 +101,8 @@
   }
   .topbar .brand{font-size:1.15rem;}
   .avatar-wrap{position:relative;}
-  .avatar{width:36px;height:36px;border-radius:50%;border:2px solid var(--card);box-shadow:var(--shadow);object-fit:cover;}
+  .avatar{width:36px;height:36px;border-radius:50%;border:2px solid var(--card);box-shadow:var(--shadow);overflow:hidden;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.3rem;background:var(--wish-soft);}
+  .avatar img{width:100%;height:100%;object-fit:cover;}
   .menu{
     position:absolute;right:0;top:44px;background:var(--card);border-radius:14px;
     box-shadow:var(--shadow);padding:8px;display:none;flex-direction:column;min-width:170px;z-index:30;
@@ -160,30 +161,33 @@
   /* 看大家 */
   .members-bar{
     background:#f4f9fe;border:1px solid var(--line);border-radius:14px;
-    padding:10px 14px;margin-bottom:14px;
+    padding:12px 14px;margin-bottom:14px;
   }
-  .members-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .members-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
   .members-bar .mtitle{font-size:.85rem;font-weight:800;color:var(--ink);}
   .members-bar .mcount{font-size:.78rem;color:var(--ink-soft);font-weight:700;}
-  .members-bar .mlist{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .members-bar .mlist{display:flex;flex-direction:column;gap:8px;}
   .member{
-    display:flex;align-items:center;gap:6px;background:var(--card);
-    border:1.5px solid var(--line);border-radius:99px;padding:3px 12px 3px 3px;
+    display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+    background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;
     transition:.15s;cursor:pointer;
   }
-  .member:active{transform:scale(.96);}
-  .member.active{border-color:var(--wish);background:var(--wish-soft);}
-  .member img{width:26px;height:26px;border-radius:50%;object-fit:cover;}
-  .member .mname{font-size:.8rem;font-weight:700;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .member .mavatar-fallback{width:26px;height:26px;border-radius:50%;background:var(--wish);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;}
+  .member:active{transform:scale(.99);}
+  .member.active{border-color:var(--todo);background:var(--todo-soft);}
+  .member .mavatar{width:42px;height:42px;border-radius:50%;flex-shrink:0;}
+  .member img.mavatar{object-fit:cover;}
+  .member .emoji-av{display:flex;align-items:center;justify-content:center;font-size:1.5rem;background:var(--wish-soft);}
+  .member .emoji-av.fallback{background:var(--wish);color:#fff;font-weight:700;}
+  .member .mname{font-size:.95rem;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .member .mtag{font-size:.72rem;color:var(--ink-soft);font-weight:700;background:var(--paper);padding:3px 9px;border-radius:99px;flex-shrink:0;}
 
   /* 正在看誰的書 橫條 */
   .view-banner{
     display:flex;align-items:center;justify-content:space-between;gap:10px;
-    background:var(--wish-soft);border:1px solid var(--wish);border-radius:12px;
+    background:var(--todo-soft);border:1px solid var(--todo);border-radius:12px;
     padding:10px 14px;margin-bottom:14px;font-size:.85rem;color:var(--ink);
   }
-  .view-banner b{color:var(--wish);}
+  .view-banner b{color:var(--todo);}
   .view-banner button{
     background:var(--ink);color:#fff;border-radius:99px;padding:6px 14px;font-size:.8rem;font-weight:700;flex-shrink:0;
   }
@@ -192,6 +196,26 @@
   .view-dot{border:2px solid var(--line);color:transparent;font-weight:700;font-size:.8rem;}
   .view-dot.done{background:var(--green);border-color:var(--green);color:#fff;}
   .item.readonly{opacity:.95;}
+
+  /* 編輯個人資料彈窗 */
+  .profile-preview{display:flex;justify-content:center;margin-bottom:6px;}
+  .avatar-preview{
+    width:84px;height:84px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:3rem;background:var(--wish-soft);border:3px solid var(--card);box-shadow:var(--shadow);overflow:hidden;
+  }
+  .avatar-preview img{width:100%;height:100%;object-fit:cover;}
+  .emoji-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;}
+  .emoji-grid button{
+    aspect-ratio:1;border-radius:12px;font-size:1.4rem;background:var(--paper);
+    border:2px solid transparent;transition:.12s;display:flex;align-items:center;justify-content:center;
+  }
+  .emoji-grid button.active{border-color:var(--todo);background:var(--todo-soft);}
+  .emoji-grid button:active{transform:scale(.92);}
+  .upload-btn{
+    width:100%;padding:13px;border-radius:12px;background:var(--paper);border:1.5px dashed var(--ink-soft);
+    font-weight:700;font-size:.9rem;color:var(--ink);
+  }
+  .upload-btn:active{transform:scale(.98);}
 
   /* 小月曆 */
   .mini-cal{
@@ -351,9 +375,10 @@
   <div class="topbar">
     <div class="brand">今天的我<span class="dot">.</span></div>
     <div class="avatar-wrap">
-      <img id="userAvatar" class="avatar" src="" alt="">
+      <div id="userAvatar" class="avatar"></div>
       <div class="menu" id="userMenu">
         <div class="code-row">這本子的代碼<b id="menuCode">------</b></div>
+        <button id="editProfileBtn">✏️ 編輯名字頭像</button>
         <button id="copyCodeBtn">📋 複製代碼</button>
         <button id="switchSpaceBtn">🔄 切換 / 加入其他本子</button>
         <button id="logoutBtn">🚪 登出</button>
@@ -441,6 +466,32 @@
 
 <div id="toast"></div>
 
+<!-- 編輯個人資料彈窗 -->
+<div class="modal-overlay" id="profileModal">
+  <div class="modal">
+    <div class="modal-title">✏️ 編輯名字頭像</div>
+
+    <div class="profile-preview">
+      <div id="avatarPreview" class="avatar-preview"></div>
+    </div>
+
+    <div class="m-label">名字（最多 20 字）</div>
+    <input type="text" id="pName" class="m-input" maxlength="20" placeholder="輸入名字...">
+
+    <div class="m-label">選一個動物頭像</div>
+    <div class="emoji-grid" id="emojiGrid"></div>
+
+    <div class="m-label">或上傳自己的照片</div>
+    <button class="upload-btn" id="uploadBtn">📷 從相簿 / 檔案選照片</button>
+    <input type="file" id="fileInput" accept="image/*" style="display:none;">
+
+    <div class="modal-btns">
+      <button class="m-cancel" id="pCancel">取消</button>
+      <button class="m-ok" id="pSave">儲存</button>
+    </div>
+  </div>
+</div>
+
 <!-- ⭐ Firebase 設定區（待貼上） ⭐ -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -473,7 +524,8 @@ let unsubItems = null;
 let unsubSpace = null;
 let viewingUid = null;     // 現在正在看誰的書（預設看自己）
 let viewingName = "";      // 正在看的人的名字
-let spaceMembers = {};     // 這個群組的成員資料 { uid: {name, photo} }
+let spaceMembers = {};     // 這個群組的成員資料 { uid: {name, avatar} }
+let myProfile = { name: "", avatar: "" };  // 我的名字跟頭像（頭像可以是 emoji 或照片）
 let activeList = "todo"; // todo | wish
 let calDate = new Date();
 let selectedDay = null;
@@ -521,9 +573,12 @@ $("logoutBtn").onclick = async () => {
 onAuthStateChanged(auth, async (user) => {
   if(user){
     currentUser = user;
-    $("userAvatar").src = user.photoURL || "";
     const userDoc = await getDoc(doc(db, "users", user.uid));
     const data = userDoc.exists() ? userDoc.data() : {};
+    // 載入我的名字頭像（沒設定過就用 Google 的）
+    myProfile.name = data.name || user.displayName || "我";
+    myProfile.avatar = data.avatar || user.photoURL || "";
+    updateMyAvatar();
     const gid = data.spaceId || data.groupId;
     if(gid){
       enterSpace(gid);
@@ -563,8 +618,8 @@ $("createBtn").onclick = async () => {
     members: [currentUser.uid],
     memberInfo: {
       [currentUser.uid]: {
-        name: currentUser.displayName || "我",
-        photo: currentUser.photoURL || ""
+        name: myProfile.name || "我",
+        avatar: myProfile.avatar || ""
       }
     }
   });
@@ -588,8 +643,8 @@ $("joinBtn").onclick = async () => {
   await updateDoc(doc(db, "spaces", code), {
     members: members.includes(currentUser.uid) ? members : [...members, currentUser.uid],
     [`memberInfo.${currentUser.uid}`]: {
-      name: currentUser.displayName || "我",
-      photo: currentUser.photoURL || ""
+      name: myProfile.name || "我",
+      avatar: myProfile.avatar || ""
     }
   });
   await setDoc(doc(db, "users", currentUser.uid), { spaceId: code }, { merge: true });
@@ -603,7 +658,7 @@ function enterSpace(spaceId){
   $("appView").classList.add("show");
   $("menuCode").textContent = spaceId;
   viewingUid = currentUser.uid;
-  viewingName = currentUser.displayName || "我";
+  viewingName = myProfile.name || "我";
   switchList("todo");
   updateViewBanner();
   listenItems();
@@ -611,14 +666,31 @@ function enterSpace(spaceId){
   renderCalendar();
 }
 
+// ---------- 頭像工具 ----------
+// 判斷頭像是照片還是 emoji，產生對應的 HTML
+function avatarMarkup(entry, cls){
+  const av = (entry && (entry.avatar || entry.photo)) || "";
+  const isImg = av.startsWith("data:") || av.startsWith("http");
+  if(isImg) return `<img src="${av}" class="${cls}" alt="">`;
+  if(av) return `<div class="${cls} emoji-av">${av}</div>`;
+  const ch = ((entry && entry.name) || "?")[0] || "?";
+  return `<div class="${cls} emoji-av fallback">${esc(ch)}</div>`;
+}
+// 更新右上角我的頭像
+function updateMyAvatar(){
+  $("userAvatar").innerHTML = avatarMarkup(myProfile, "");
+  const inner = $("userAvatar").firstElementChild;
+  if(inner && inner.tagName === "IMG"){ inner.style.width="100%"; inner.style.height="100%"; }
+}
+
 // 監聽本子（成員變動時即時更新）
 function listenSpace(){
   if(unsubSpace) unsubSpace();
-  // 補存自己的名字頭像（舊群組可能還沒存）
+  // 補存自己的名字頭像
   updateDoc(doc(db, "spaces", currentSpaceId), {
     [`memberInfo.${currentUser.uid}`]: {
-      name: currentUser.displayName || "我",
-      photo: currentUser.photoURL || ""
+      name: myProfile.name || "我",
+      avatar: myProfile.avatar || ""
     }
   }).catch(()=>{});
   unsubSpace = onSnapshot(doc(db, "spaces", currentSpaceId), (snap) => {
@@ -632,26 +704,26 @@ function renderMembers(spaceData){
   const bar = $("membersBar");
   const members = spaceData.members || [];
   const info = spaceData.memberInfo || {};
-  let chips = "";
+  let cards = "";
   members.forEach(uid => {
     const m = info[uid] || {};
     const isMe = uid === currentUser.uid;
-    const name = isMe ? "我" : (m.name || "成員");
-    const photo = m.photo || "";
+    const name = m.name || "成員";
     const active = uid === viewingUid ? "active" : "";
-    const avatar = photo
-      ? `<img src="${photo}" alt="">`
-      : `<div class="mavatar-fallback">${esc((m.name||"?")[0] || "?")}</div>`;
-    chips += `<button class="member ${active}" data-uid="${uid}" data-name="${esc(m.name||name)}">${avatar}<span class="mname">${esc(name)}</span></button>`;
+    cards += `<button class="member ${active}" data-uid="${uid}" data-name="${esc(name)}">
+        ${avatarMarkup(m, "mavatar")}
+        <span class="mname">${esc(name)}</span>
+        ${isMe ? '<span class="mtag">我</span>' : '<span class="mtag">看他的書</span>'}
+      </button>`;
   });
   bar.innerHTML = `
     <div class="members-head"><span class="mtitle">👀 看大家</span><span class="mcount">共 ${members.length} 人</span></div>
-    <div class="mlist">${chips}</div>`;
+    <div class="mlist">${cards}</div>`;
 
   bar.querySelectorAll(".member").forEach(btn => {
     btn.onclick = () => {
       const uid = btn.dataset.uid;
-      const name = uid === currentUser.uid ? (currentUser.displayName || "我") : btn.dataset.name;
+      const name = uid === currentUser.uid ? (myProfile.name || "我") : btn.dataset.name;
       viewItems(uid, name);
     };
   });
@@ -682,7 +754,7 @@ function updateViewBanner(){
     banner.style.display = "flex";
     banner.innerHTML = `<span>👀 正在看 <b>${esc(viewingName)}</b> 的書（只能看）</span><button id="backToMine">看我自己</button>`;
     $("addRow").style.display = "none";
-    $("backToMine").onclick = () => viewItems(currentUser.uid, currentUser.displayName || "我");
+    $("backToMine").onclick = () => viewItems(currentUser.uid, myProfile.name || "我");
   }
 }
 
@@ -706,6 +778,95 @@ $("switchSpaceBtn").onclick = () => {
   $("appView").classList.remove("show");
   $("spaceView").classList.add("show");
   $("userMenu").classList.remove("show");
+};
+
+// ---------- 編輯個人資料 ----------
+const ANIMAL_EMOJIS = ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐸","🐵","🐔","🐧","🐦","🦆","🦉","🐴","🦄","🐝","🦋","🐢","🐙","🦖","🐳","🐬","🦈","🐠","🦦"];
+let pickedAvatar = "";  // 彈窗裡暫存選的頭像
+
+// 建立 emoji 選擇格
+function buildEmojiGrid(){
+  const grid = $("emojiGrid");
+  grid.innerHTML = "";
+  ANIMAL_EMOJIS.forEach(em => {
+    const b = document.createElement("button");
+    b.textContent = em;
+    b.onclick = () => { setPickedAvatar(em); };
+    grid.appendChild(b);
+  });
+}
+buildEmojiGrid();
+
+function setPickedAvatar(av){
+  pickedAvatar = av;
+  // 預覽
+  const prev = $("avatarPreview");
+  const isImg = av.startsWith("data:") || av.startsWith("http");
+  prev.innerHTML = isImg ? `<img src="${av}" alt="">` : av;
+  // emoji 高亮
+  $("emojiGrid").querySelectorAll("button").forEach(b=>{
+    b.classList.toggle("active", b.textContent === av);
+  });
+}
+
+$("editProfileBtn").onclick = () => {
+  $("userMenu").classList.remove("show");
+  $("pName").value = myProfile.name || "";
+  setPickedAvatar(myProfile.avatar || "🐹");
+  $("profileModal").classList.add("show");
+};
+$("pCancel").onclick = () => $("profileModal").classList.remove("show");
+$("profileModal").onclick = (e) => { if(e.target.id === "profileModal") $("profileModal").classList.remove("show"); };
+
+// 上傳照片 → 壓小成 data URL
+$("uploadBtn").onclick = () => $("fileInput").click();
+$("fileInput").onchange = (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      // 壓縮成最大 200px 的正方形 JPEG
+      const size = 200;
+      const canvas = document.createElement("canvas");
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      // 置中裁切成正方形
+      const min = Math.min(img.width, img.height);
+      const sx = (img.width - min) / 2;
+      const sy = (img.height - min) / 2;
+      ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
+      setPickedAvatar(dataUrl);
+      toast("照片好了 📷");
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+  $("fileInput").value = "";
+};
+
+$("pSave").onclick = async () => {
+  const name = $("pName").value.trim().slice(0, 20) || "我";
+  myProfile.name = name;
+  myProfile.avatar = pickedAvatar || "";
+  updateMyAvatar();
+  // 存到我的資料
+  await setDoc(doc(db, "users", currentUser.uid), {
+    name: myProfile.name,
+    avatar: myProfile.avatar
+  }, { merge: true });
+  // 同步到群組（讓大家看到新的名字頭像）
+  if(currentSpaceId){
+    await updateDoc(doc(db, "spaces", currentSpaceId), {
+      [`memberInfo.${currentUser.uid}`]: { name: myProfile.name, avatar: myProfile.avatar }
+    }).catch(()=>{});
+  }
+  // 如果正在看自己的書，名字也更新
+  if(viewingUid === currentUser.uid){ viewingName = myProfile.name; }
+  $("profileModal").classList.remove("show");
+  toast("儲存好了 ✨");
 };
 
 // ---------- 清單功能 ----------
