@@ -948,16 +948,24 @@ $("mCreate").onclick = async () => {
     unit = modalUnit === "__custom__" ? ($("mUnitCustom").value.trim() || "次") : modalUnit;
   }
 
-  await addDoc(collection(db, "users", currentUser.uid, "items"), {
-    text, type: activeList, done: false,
-    goal,            // 每月目標（0 = 一次性）
-    unit,            // 單位（次 / h / 個 / 自訂）
-    checkins: {},
-    createdAt: serverTimestamp(),
-    doneAt: null
-  });
-  closeAddModal();
-  toast("新增好了 ✨");
+  $("mCreate").disabled = true;
+  try{
+    await addDoc(collection(db, "users", currentUser.uid, "items"), {
+      text, type: activeList, done: false,
+      goal,            // 每月目標（0 = 一次性）
+      unit,            // 單位（次 / h / 個 / 自訂）
+      checkins: {},
+      createdAt: serverTimestamp(),
+      doneAt: null
+    });
+    closeAddModal();
+    toast("新增好了 ✨");
+  }catch(err){
+    console.error(err);
+    toast("存不進去，可能要更新 Firebase 規則 ⚠️");
+  }finally{
+    $("mCreate").disabled = false;
+  }
 }
 
 // 今天的日期字串
