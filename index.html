@@ -962,7 +962,7 @@ $("mCreate").onclick = async () => {
     toast("新增好了 ✨");
   }catch(err){
     console.error(err);
-    toast("存不進去，可能要更新 Firebase 規則 ⚠️");
+    toast("錯誤：" + (err.code || err.message || err));
   }finally{
     $("mCreate").disabled = false;
   }
