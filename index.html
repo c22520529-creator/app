@@ -290,6 +290,11 @@
   }
   .seg-opt.active{background:var(--todo);border-color:var(--todo);color:#fff;}
   .modal-btns{display:flex;gap:10px;margin-top:22px;}
+  .due-row{display:flex;gap:8px;align-items:center;}
+  .due-row #mDue{flex:1;}
+  .due-clear{padding:11px 14px;border-radius:11px;background:var(--paper);border:1.5px solid var(--line);font-weight:700;font-size:.82rem;color:var(--ink-soft);flex-shrink:0;}
+  .due-clear:active{transform:scale(.95);}
+  .item-due{font-size:.72rem;color:var(--ink-soft);font-weight:700;}
   .m-cancel{
     flex:1;padding:14px;border-radius:14px;background:var(--paper);border:1.5px solid var(--line);
     font-weight:800;font-size:.95rem;color:var(--ink);
@@ -323,6 +328,16 @@
   }
   .picker-quick button:active{background:var(--todo-soft);}
   .picker-count{text-align:center;font-weight:800;font-size:.85rem;color:var(--todo);margin-top:10px;font-family:"Baloo 2","Noto Sans TC",sans-serif;}
+
+  /* 提醒條 */
+  #reminderArea{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+  #reminderArea:empty{margin-bottom:0;}
+  .reminder{
+    display:flex;align-items:center;gap:8px;border-radius:12px;padding:11px 14px;
+    font-size:.85rem;font-weight:700;line-height:1.5;animation:popin .3s ease;
+  }
+  .reminder.holiday{background:#fff4d6;border:1px solid var(--gold);color:#8a6d1c;}
+  .reminder.todo-late{background:#ffe3e0;border:1px solid #e88a7d;color:#a3382c;}
 
   /* toast */
   #toast{
@@ -391,6 +406,9 @@
   <!-- 主頁（清單 + 上方小月曆） -->
   <div class="page show" id="listPage">
 
+    <!-- 提醒條（放假提醒、未完成提醒） -->
+    <div id="reminderArea"></div>
+
     <!-- 看大家 -->
     <div class="members-bar" id="membersBar"></div>
 
@@ -450,6 +468,12 @@
         <button type="button" id="pickClear">清空</button>
       </div>
       <div class="picker-count" id="pickerCount">已選 0 天</div>
+    </div>
+
+    <div class="m-label">幾點前要做完？（可不填）</div>
+    <div class="due-row">
+      <input type="time" id="mDue" class="m-input">
+      <button type="button" class="due-clear" id="mDueClear">清除</button>
     </div>
 
     <div class="modal-btns">
@@ -891,6 +915,7 @@ function openAddModal(){
   $("mCreate").textContent = "建立";
   $("mText").value = "";
   $("mText").placeholder = activeList === "todo" ? "例：運動、讀完一本書..." : "例：去看海、學吉他...";
+  $("mDue").value = "";
   pickerDate = new Date();
   pickedDays = new Set();
   setModalType("habit");
@@ -906,6 +931,7 @@ function openEditModal(item){
   $("modalTitle").textContent = "✏️ 編輯";
   $("mCreate").textContent = "儲存";
   $("mText").value = item.text || "";
+  $("mDue").value = item.dueTime || "";
   const isHabit = item.goal && item.goal > 0;
   setModalType(isHabit ? "habit" : "once");
   // 帶入原本挑的日子
@@ -984,6 +1010,7 @@ function fillMonth(test){
 }
 
 $("mCancel").onclick = closeAddModal;
+$("mDueClear").onclick = () => { $("mDue").value = ""; };
 $("addModal").onclick = (e) => { if(e.target.id === "addModal") closeAddModal(); };
 
 $("mCreate").onclick = async () => {
@@ -998,6 +1025,7 @@ $("mCreate").onclick = async () => {
       return;
     }
   }
+  const dueTime = $("mDue").value || "";   // 幾點前要做完（空 = 沒設）
 
   $("mCreate").disabled = true;
   try{
@@ -1006,7 +1034,8 @@ $("mCreate").onclick = async () => {
       await updateDoc(doc(db, "users", currentUser.uid, "items", editingId), {
         text,
         goal: targetDays.length,
-        targetDays
+        targetDays,
+        dueTime
       });
       closeAddModal();
       toast("改好了 ✨");
@@ -1016,6 +1045,7 @@ $("mCreate").onclick = async () => {
         text, type: activeList, done: false,
         goal: targetDays.length,   // 要做幾天（0 = 一次性）
         targetDays,                // 這個月要做的日子
+        dueTime,                   // 幾點前要做完
         checkins: {},
         createdAt: serverTimestamp(),
         doneAt: null
@@ -1065,6 +1095,7 @@ function listenItems(){
     snap.forEach(d => allItems.push({ id:d.id, ...d.data() }));
     renderItems();
     renderCalendar();
+    renderReminders();
     if(selectedDay) renderDayDetail(selectedDay);
   });
 }
@@ -1107,6 +1138,7 @@ function renderItems(){
       const restTag = restToday ? ' <span class="rest-tag">今天休息</span>' : '';
       mainHtml = `
         <div class="item-text">${esc(item.text)}${restTag}</div>
+        ${item.dueTime ? `<div class="item-due">⏰ ${esc(item.dueTime)} 前</div>` : ''}
         <div class="goal-wrap">
           <div class="goal-bar"><div class="goal-fill ${reached?'reached':''}" style="width:${pct}%"></div></div>
           <div class="goal-text ${reached?'reached':''}">${done}/${total}${esc(unit)}${reached?' 🎉':''}</div>
@@ -1114,7 +1146,7 @@ function renderItems(){
     }else{
       // 簡單模式：一次性完成
       checkedNow = !!item.done;
-      mainHtml = `<div class="item-text">${esc(item.text)}</div>`;
+      mainHtml = `<div class="item-text">${esc(item.text)}</div>${item.dueTime ? `<div class="item-due">⏰ ${esc(item.dueTime)} 前</div>` : ''}`;
     }
 
     const div = document.createElement("div");
@@ -1185,6 +1217,79 @@ $("nextMonth").onclick = () => { calDate.setMonth(calDate.getMonth()+1); renderC
 
 function ymd(date){
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+}
+
+// ---------- 提醒功能 ----------
+// 2026 台灣國定假日（放假日）
+const HOLIDAYS_2026 = {
+  "2026-01-01":"元旦",
+  "2026-02-14":"小年夜",
+  "2026-02-15":"除夕",
+  "2026-02-16":"春節",
+  "2026-02-17":"春節",
+  "2026-02-18":"春節",
+  "2026-02-28":"和平紀念日",
+  "2026-04-03":"兒童節",
+  "2026-04-04":"清明節",
+  "2026-04-05":"清明節",
+  "2026-05-01":"勞動節",
+  "2026-06-19":"端午節",
+  "2026-09-25":"中秋節",
+  "2026-10-10":"國慶日",
+};
+// 這天是不是放假（六、日、或國定假日）
+function isHoliday(date){
+  const wd = date.getDay();
+  if(wd === 0 || wd === 6) return true;          // 週六、週日
+  if(HOLIDAYS_2026[ymd(date)]) return true;      // 國定假日
+  return false;
+}
+// 明天放假的話，回傳放假名稱（給提醒用）
+function tomorrowHolidayName(){
+  const tmr = new Date();
+  tmr.setDate(tmr.getDate() + 1);
+  if(!isHoliday(tmr)) return null;
+  const named = HOLIDAYS_2026[ymd(tmr)];
+  if(named) return named;
+  const wd = tmr.getDay();
+  if(wd === 6) return "星期六";
+  if(wd === 0) return "星期日";
+  return "放假";
+}
+
+// 畫提醒條（放假提醒 + 未完成提醒）
+function renderReminders(){
+  const area = $("reminderArea");
+  if(!area) return;
+  // 只在看自己的書時提醒
+  if(viewingUid !== currentUser.uid){ area.innerHTML = ""; return; }
+  let html = "";
+
+  // 1) 放假前一天提醒
+  const holi = tomorrowHolidayName();
+  if(holi){
+    html += `<div class="reminder holiday">🎉 明天放假（${esc(holi)}）～今天的事記得做完喔！</div>`;
+  }
+
+  // 2) 過了時間還沒做完的提醒
+  const now = new Date();
+  const nowMin = now.getHours()*60 + now.getMinutes();
+  const tKey = todayKey();
+  const late = [];
+  allItems.forEach(item => {
+    if(!item.dueTime) return;                       // 沒設時間就跳過
+    if(!isTargetToday(item)) return;                // 今天不用做就跳過
+    const [h,m] = item.dueTime.split(":").map(Number);
+    const dueMin = h*60 + m;
+    const isHabit = item.goal && item.goal > 0;
+    const doneToday = isHabit ? (item.checkins && item.checkins[tKey]) : item.done;
+    if(nowMin > dueMin && !doneToday) late.push(item.text);
+  });
+  late.forEach(t => {
+    html += `<div class="reminder todo-late">⏰ 「${esc(t)}」還沒做喔</div>`;
+  });
+
+  area.innerHTML = html;
 }
 
 // 建立「每一天有沒有事」的表
