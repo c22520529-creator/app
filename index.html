@@ -144,6 +144,7 @@
   .check svg{width:14px;height:14px;opacity:0;transition:.15s;}
   .item.done .check svg{opacity:1;}
   .item-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;}
+  .item-main.editable{cursor:pointer;}
   .item-text{font-size:.92rem;line-height:1.4;word-break:break-word;}
   .item.done .item-text{color:var(--ink-soft);text-decoration:line-through;}
   /* 進度條（每月習慣） */
@@ -874,17 +875,20 @@ function switchList(type){
   renderItems();
 }
 
-// ---------- 新增彈窗 ----------
+// ---------- 新增 / 編輯彈窗 ----------
 let modalType = "habit"; // habit | once
 let pickerDate = new Date();          // 挑日子月曆顯示的月份
 let pickedDays = new Set();           // 選了哪幾天（YYYY-MM-DD）
+let editingId = null;                 // 正在編輯哪一筆（null = 新增）
 
 $("addRow").onclick = openAddModal;
 
 function openAddModal(){
   // 看別人的書時不能新增（理論上按鈕已隱藏，雙重保險）
   if(viewingUid !== currentUser.uid) return;
+  editingId = null;
   $("modalTitle").textContent = activeList === "todo" ? "📌 新增要做的事" : "⭐ 新增想做的事";
+  $("mCreate").textContent = "建立";
   $("mText").value = "";
   $("mText").placeholder = activeList === "todo" ? "例：運動、讀完一本書..." : "例：去看海、學吉他...";
   pickerDate = new Date();
@@ -894,7 +898,30 @@ function openAddModal(){
   $("addModal").classList.add("show");
   setTimeout(()=>$("mText").focus(), 100);
 }
-function closeAddModal(){ $("addModal").classList.remove("show"); }
+
+// 開啟編輯彈窗，帶入原本內容
+function openEditModal(item){
+  if(viewingUid !== currentUser.uid) return; // 只能編輯自己的
+  editingId = item.id;
+  $("modalTitle").textContent = "✏️ 編輯";
+  $("mCreate").textContent = "儲存";
+  $("mText").value = item.text || "";
+  const isHabit = item.goal && item.goal > 0;
+  setModalType(isHabit ? "habit" : "once");
+  // 帶入原本挑的日子
+  pickedDays = new Set(item.targetDays || []);
+  // 月曆顯示有選日子的那個月（或這個月）
+  if(item.targetDays && item.targetDays.length){
+    const first = item.targetDays.slice().sort()[0];
+    pickerDate = new Date(first + "T00:00:00");
+  }else{
+    pickerDate = new Date();
+  }
+  buildDayPicker();
+  $("addModal").classList.add("show");
+  setTimeout(()=>$("mText").focus(), 100);
+}
+function closeAddModal(){ $("addModal").classList.remove("show"); editingId = null; }
 
 function setModalType(t){
   modalType = t;
@@ -974,16 +1001,28 @@ $("mCreate").onclick = async () => {
 
   $("mCreate").disabled = true;
   try{
-    await addDoc(collection(db, "users", currentUser.uid, "items"), {
-      text, type: activeList, done: false,
-      goal: targetDays.length,   // 要做幾天（0 = 一次性）
-      targetDays,                // 這個月要做的日子
-      checkins: {},
-      createdAt: serverTimestamp(),
-      doneAt: null
-    });
-    closeAddModal();
-    toast("新增好了 ✨");
+    if(editingId){
+      // 編輯：更新原本那一筆（保留打卡記錄）
+      await updateDoc(doc(db, "users", currentUser.uid, "items", editingId), {
+        text,
+        goal: targetDays.length,
+        targetDays
+      });
+      closeAddModal();
+      toast("改好了 ✨");
+    }else{
+      // 新增
+      await addDoc(collection(db, "users", currentUser.uid, "items"), {
+        text, type: activeList, done: false,
+        goal: targetDays.length,   // 要做幾天（0 = 一次性）
+        targetDays,                // 這個月要做的日子
+        checkins: {},
+        createdAt: serverTimestamp(),
+        doneAt: null
+      });
+      closeAddModal();
+      toast("新增好了 ✨");
+    }
   }catch(err){
     console.error(err);
     toast("錯誤：" + (err.code || err.message || err));
@@ -1087,7 +1126,9 @@ function renderItems(){
          </button>`
       : `<div class="check view-dot ${checkedNow?'done':''}">${checkedNow?'✓':''}</div>`;
     const delBtn = isMe ? `<button class="item-del" data-del="${item.id}">🗑️</button>` : "";
-    div.innerHTML = `${checkBtn}<div class="item-main">${mainHtml}</div>${delBtn}`;
+    const mainCls = isMe ? "item-main editable" : "item-main";
+    const editAttr = isMe ? ` data-edit="${item.id}"` : "";
+    div.innerHTML = `${checkBtn}<div class="${mainCls}"${editAttr}>${mainHtml}</div>${delBtn}`;
     list.appendChild(div);
   });
 
@@ -1120,6 +1161,13 @@ function renderItems(){
     btn.onclick = async () => {
       await deleteDoc(doc(db, "users", currentUser.uid, "items", btn.dataset.del));
       toast("刪掉了");
+    };
+  });
+  // 點文字區 → 編輯
+  list.querySelectorAll("[data-edit]").forEach(el => {
+    el.onclick = () => {
+      const item = allItems.find(i => i.id === el.dataset.edit);
+      if(item) openEditModal(item);
     };
   });
 }
