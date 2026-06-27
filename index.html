@@ -153,6 +153,7 @@
   .goal-fill.reached{background:var(--green);}
   .goal-text{font-size:.74rem;font-weight:700;color:var(--ink-soft);font-family:"Baloo 2",sans-serif;white-space:nowrap;}
   .goal-text.reached{color:var(--green);}
+  .rest-tag{font-size:.68rem;font-weight:700;color:var(--ink-soft);background:var(--paper);border:1px solid var(--line);border-radius:99px;padding:1px 8px;margin-left:4px;}
   .item-del{color:var(--ink-soft);font-size:1.1rem;padding:4px;flex-shrink:0;}
   .empty-state{text-align:center;color:var(--ink-soft);font-size:.85rem;padding:50px 20px;line-height:1.8;}
   .empty-state .em{font-size:2rem;display:block;margin-bottom:8px;}
@@ -287,30 +288,6 @@
     background:var(--paper);border:1.5px solid var(--line);color:var(--ink-soft);transition:.15s;
   }
   .seg-opt.active{background:var(--todo);border-color:var(--todo);color:#fff;}
-  .unit-pick{display:flex;gap:8px;flex-wrap:wrap;}
-  .unit-opt{
-    flex:1;min-width:60px;padding:11px 0;border-radius:11px;font-weight:700;font-size:.86rem;
-    background:var(--paper);border:1.5px solid var(--line);color:var(--ink);transition:.15s;
-  }
-  .unit-opt.active{background:var(--todo-soft);border-color:var(--todo);color:var(--todo);}
-  .num-row{display:flex;gap:10px;align-items:stretch;}
-  .num-step{
-    width:54px;border-radius:12px;background:var(--paper);border:1.5px solid var(--line);
-    font-size:1.4rem;font-weight:700;color:var(--ink);flex-shrink:0;
-  }
-  .num-step.plus{background:var(--todo);border-color:var(--todo);color:#fff;}
-  .num-step:active{transform:scale(.95);}
-  .num-big{
-    flex:1;text-align:center;border:1.5px solid var(--line);border-radius:12px;
-    font-size:1.6rem;font-weight:800;font-family:"Baloo 2",sans-serif;background:var(--paper);color:var(--ink);
-  }
-  .num-big:focus{outline:none;border-color:var(--todo);}
-  .quick-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
-  .quick{
-    flex:1;min-width:48px;padding:9px 0;border-radius:10px;font-weight:700;font-size:.86rem;
-    background:var(--paper);border:1.5px solid var(--line);color:var(--ink);font-family:"Baloo 2",sans-serif;
-  }
-  .quick:active{background:var(--todo-soft);}
   .modal-btns{display:flex;gap:10px;margin-top:22px;}
   .m-cancel{
     flex:1;padding:14px;border-radius:14px;background:var(--paper);border:1.5px solid var(--line);
@@ -321,6 +298,30 @@
     font-weight:800;font-size:.95rem;
   }
   .m-cancel:active,.m-ok:active{transform:scale(.98);}
+
+  /* 挑日子小月曆 */
+  .picker-cal{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px;}
+  .picker-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .picker-head span{font-weight:800;font-size:.92rem;}
+  .picker-head button{width:30px;height:30px;border-radius:8px;background:var(--card);border:1px solid var(--line);font-weight:700;}
+  .picker-head button:active{transform:scale(.92);}
+  .picker-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;}
+  .picker-dow{text-align:center;font-size:.68rem;color:var(--ink-soft);font-weight:700;padding-bottom:2px;}
+  .picker-grid .pcell{
+    aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-size:.82rem;font-weight:700;background:var(--card);border:1.5px solid transparent;color:var(--ink);
+    cursor:pointer;font-family:"Baloo 2",sans-serif;
+  }
+  .picker-grid .pcell.empty{background:transparent;cursor:default;}
+  .picker-grid .pcell.picked{background:var(--todo);color:#fff;border-color:var(--todo);}
+  .picker-grid .pcell:not(.empty):active{transform:scale(.9);}
+  .picker-quick{display:flex;gap:8px;margin-top:10px;}
+  .picker-quick button{
+    flex:1;padding:9px 0;border-radius:10px;font-weight:700;font-size:.8rem;
+    background:var(--paper);border:1.5px solid var(--line);color:var(--ink);
+  }
+  .picker-quick button:active{background:var(--todo-soft);}
+  .picker-count{text-align:center;font-weight:800;font-size:.85rem;color:var(--todo);margin-top:10px;font-family:"Baloo 2","Noto Sans TC",sans-serif;}
 
   /* toast */
   #toast{
@@ -433,28 +434,21 @@
     </div>
 
     <div id="habitFields">
-      <div class="m-label">單位</div>
-      <div class="unit-pick">
-        <button class="unit-opt active" data-unit="次">次</button>
-        <button class="unit-opt" data-unit="h">h</button>
-        <button class="unit-opt" data-unit="個">個</button>
-        <button class="unit-opt custom" id="unitCustom">自訂</button>
+      <div class="m-label">這個月哪幾天要做？（點一下選 / 再點取消）</div>
+      <div class="picker-cal">
+        <div class="picker-head">
+          <button type="button" id="pickPrev">‹</button>
+          <span id="pickMonthLabel">2026年6月</span>
+          <button type="button" id="pickNext">›</button>
+        </div>
+        <div class="picker-grid" id="pickerGrid"></div>
       </div>
-      <input type="text" id="mUnitCustom" class="m-input" placeholder="自己打單位..." style="display:none;margin-top:8px;">
-
-      <div class="m-label">目標數值（每月）</div>
-      <div class="num-row">
-        <button class="num-step" id="numMinus">−</button>
-        <input type="number" id="mGoal" class="num-big" value="1" min="1">
-        <button class="num-step plus" id="numPlus">＋</button>
+      <div class="picker-quick">
+        <button type="button" id="pickWeekdays">平日全選</button>
+        <button type="button" id="pickWeekends">假日全選</button>
+        <button type="button" id="pickClear">清空</button>
       </div>
-      <div class="quick-row">
-        <button class="quick" data-v="5">5</button>
-        <button class="quick" data-v="10">10</button>
-        <button class="quick" data-v="15">15</button>
-        <button class="quick" data-v="20">20</button>
-        <button class="quick" data-v="30">30</button>
-      </div>
+      <div class="picker-count" id="pickerCount">已選 0 天</div>
     </div>
 
     <div class="modal-btns">
@@ -882,7 +876,8 @@ function switchList(type){
 
 // ---------- 新增彈窗 ----------
 let modalType = "habit"; // habit | once
-let modalUnit = "次";
+let pickerDate = new Date();          // 挑日子月曆顯示的月份
+let pickedDays = new Set();           // 選了哪幾天（YYYY-MM-DD）
 
 $("addRow").onclick = openAddModal;
 
@@ -892,11 +887,10 @@ function openAddModal(){
   $("modalTitle").textContent = activeList === "todo" ? "📌 新增要做的事" : "⭐ 新增想做的事";
   $("mText").value = "";
   $("mText").placeholder = activeList === "todo" ? "例：運動、讀完一本書..." : "例：去看海、學吉他...";
-  $("mGoal").value = 1;
-  $("mUnitCustom").value = "";
-  $("mUnitCustom").style.display = "none";
+  pickerDate = new Date();
+  pickedDays = new Set();
   setModalType("habit");
-  setUnit("次");
+  buildDayPicker();
   $("addModal").classList.add("show");
   setTimeout(()=>$("mText").focus(), 100);
 }
@@ -906,34 +900,61 @@ function setModalType(t){
   modalType = t;
   $("typeHabit").classList.toggle("active", t==="habit");
   $("typeOnce").classList.toggle("active", t==="once");
-  // 一次性目標：不需要每月次數那些欄位
+  // 一次性目標：不需要挑日子
   $("habitFields").style.display = t==="habit" ? "block" : "none";
 }
 $("typeHabit").onclick = () => setModalType("habit");
 $("typeOnce").onclick = () => setModalType("once");
 
-function setUnit(u){
-  modalUnit = u;
-  document.querySelectorAll(".unit-opt").forEach(b=>{
-    b.classList.toggle("active", b.dataset.unit === u);
+// ----- 挑日子月曆 -----
+const PICK_DOW = ["日","一","二","三","四","五","六"];
+function buildDayPicker(){
+  const y = pickerDate.getFullYear(), mo = pickerDate.getMonth();
+  $("pickMonthLabel").textContent = `${y}年${mo+1}月`;
+  const startW = new Date(y, mo, 1).getDay();
+  const days = new Date(y, mo+1, 0).getDate();
+  const grid = $("pickerGrid");
+  grid.innerHTML = "";
+  PICK_DOW.forEach(d=>{
+    const el=document.createElement("div"); el.className="picker-dow"; el.textContent=d; grid.appendChild(el);
   });
-  $("unitCustom").classList.toggle("active", u==="__custom__");
+  for(let i=0;i<startW;i++){
+    const el=document.createElement("div"); el.className="pcell empty"; grid.appendChild(el);
+  }
+  for(let d=1; d<=days; d++){
+    const key = `${y}-${String(mo+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const el=document.createElement("div");
+    el.className = "pcell" + (pickedDays.has(key) ? " picked" : "");
+    el.textContent = d;
+    el.onclick = () => {
+      if(pickedDays.has(key)) pickedDays.delete(key);
+      else pickedDays.add(key);
+      buildDayPicker();
+    };
+    grid.appendChild(el);
+  }
+  $("pickerCount").textContent = `已選 ${pickedDays.size} 天`;
 }
-document.querySelectorAll(".unit-opt[data-unit]").forEach(btn=>{
-  btn.onclick = () => { $("mUnitCustom").style.display="none"; setUnit(btn.dataset.unit); };
-});
-$("unitCustom").onclick = () => {
-  setUnit("__custom__");
-  $("mUnitCustom").style.display = "block";
-  $("mUnitCustom").focus();
+$("pickPrev").onclick = () => { pickerDate.setMonth(pickerDate.getMonth()-1); buildDayPicker(); };
+$("pickNext").onclick = () => { pickerDate.setMonth(pickerDate.getMonth()+1); buildDayPicker(); };
+// 平日/假日全選、清空（只動目前顯示的月份）
+$("pickWeekdays").onclick = () => fillMonth(d => d>=1 && d<=5);
+$("pickWeekends").onclick = () => fillMonth(d => d===0 || d===6);
+$("pickClear").onclick = () => {
+  const y=pickerDate.getFullYear(), mo=pickerDate.getMonth();
+  const prefix = `${y}-${String(mo+1).padStart(2,"0")}-`;
+  [...pickedDays].forEach(k=>{ if(k.startsWith(prefix)) pickedDays.delete(k); });
+  buildDayPicker();
 };
-
-// 數值加減 + 快捷
-$("numMinus").onclick = () => { $("mGoal").value = Math.max(1, (parseInt($("mGoal").value)||1) - 1); };
-$("numPlus").onclick  = () => { $("mGoal").value = (parseInt($("mGoal").value)||0) + 1; };
-document.querySelectorAll(".quick").forEach(btn=>{
-  btn.onclick = () => { $("mGoal").value = btn.dataset.v; };
-});
+function fillMonth(test){
+  const y=pickerDate.getFullYear(), mo=pickerDate.getMonth();
+  const days=new Date(y,mo+1,0).getDate();
+  for(let d=1; d<=days; d++){
+    const wd=new Date(y,mo,d).getDay();
+    if(test(wd)) pickedDays.add(`${y}-${String(mo+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`);
+  }
+  buildDayPicker();
+}
 
 $("mCancel").onclick = closeAddModal;
 $("addModal").onclick = (e) => { if(e.target.id === "addModal") closeAddModal(); };
@@ -942,18 +963,21 @@ $("mCreate").onclick = async () => {
   const text = $("mText").value.trim();
   if(!text){ $("mText").focus(); return; }
 
-  let goal = 0, unit = "";
+  let targetDays = [];
   if(modalType === "habit"){
-    goal = parseInt($("mGoal").value) || 0;
-    unit = modalUnit === "__custom__" ? ($("mUnitCustom").value.trim() || "次") : modalUnit;
+    targetDays = [...pickedDays].sort();
+    if(targetDays.length === 0){
+      toast("先挑這個月哪幾天要做 📅");
+      return;
+    }
   }
 
   $("mCreate").disabled = true;
   try{
     await addDoc(collection(db, "users", currentUser.uid, "items"), {
       text, type: activeList, done: false,
-      goal,            // 每月目標（0 = 一次性）
-      unit,            // 單位（次 / h / 個 / 自訂）
+      goal: targetDays.length,   // 要做幾天（0 = 一次性）
+      targetDays,                // 這個月要做的日子
       checkins: {},
       createdAt: serverTimestamp(),
       doneAt: null
@@ -970,11 +994,27 @@ $("mCreate").onclick = async () => {
 
 // 今天的日期字串
 function todayKey(){ return ymd(new Date()); }
-// 這件事這個月打了幾次卡
+// 這件事這個月打了幾次卡（舊資料用）
 function monthCount(item, year, month){
   if(!item.checkins) return 0;
   const prefix = `${year}-${String(month+1).padStart(2,"0")}`;
   return Object.keys(item.checkins).filter(k => k.startsWith(prefix) && item.checkins[k]).length;
+}
+// 習慣進度：做了幾天 / 要做幾天（挑日子模式）
+function habitProgress(item){
+  if(item.targetDays && item.targetDays.length){
+    const td = item.targetDays;
+    const done = td.filter(d => item.checkins && item.checkins[d]).length;
+    return { done, total: td.length, unit: "天" };
+  }
+  // 舊資料：用每月次數
+  const now = new Date();
+  return { done: monthCount(item, now.getFullYear(), now.getMonth()), total: item.goal, unit: (item.unit||"次") };
+}
+// 今天是不是「要做的日子」
+function isTargetToday(item){
+  if(item.targetDays && item.targetDays.length) return item.targetDays.includes(todayKey());
+  return true; // 舊資料：每天都可以做
 }
 
 function listenItems(){
@@ -1004,6 +1044,15 @@ function renderItems(){
   }
   const now = new Date();
   const tKey = todayKey();
+  // 排序：今天還要做的排上面；做完了或今天是休息日的沉到下面
+  const isDoneNow = (item) => {
+    if(item.goal && item.goal > 0){
+      if(!isTargetToday(item)) return true;            // 今天是休息日 → 沉下去
+      return !!(item.checkins && item.checkins[tKey]); // 今天打卡了 → 沉下去
+    }
+    return !!item.done;
+  };
+  filtered.sort((a, b) => (isDoneNow(a) ? 1 : 0) - (isDoneNow(b) ? 1 : 0));
   list.innerHTML = "";
   filtered.forEach(item => {
     const isHabit = item.goal && item.goal > 0;
@@ -1012,14 +1061,16 @@ function renderItems(){
     if(isHabit){
       // 習慣模式：看今天有沒有打卡
       checkedNow = !!(item.checkins && item.checkins[tKey]);
-      const count = monthCount(item, now.getFullYear(), now.getMonth());
-      const pct = Math.min(100, Math.round(count / item.goal * 100));
-      const reached = count >= item.goal;
+      const { done, total, unit } = habitProgress(item);
+      const pct = total > 0 ? Math.min(100, Math.round(done / total * 100)) : 0;
+      const reached = total > 0 && done >= total;
+      const restToday = !isTargetToday(item);
+      const restTag = restToday ? ' <span class="rest-tag">今天休息</span>' : '';
       mainHtml = `
-        <div class="item-text">${esc(item.text)}</div>
+        <div class="item-text">${esc(item.text)}${restTag}</div>
         <div class="goal-wrap">
           <div class="goal-bar"><div class="goal-fill ${reached?'reached':''}" style="width:${pct}%"></div></div>
-          <div class="goal-text ${reached?'reached':''}">${count}/${item.goal}${esc(item.unit||"次")}${reached?' 🎉':''}</div>
+          <div class="goal-text ${reached?'reached':''}">${done}/${total}${esc(unit)}${reached?' 🎉':''}</div>
         </div>`;
     }else{
       // 簡單模式：一次性完成
