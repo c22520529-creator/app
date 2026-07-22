@@ -329,6 +329,40 @@
   .picker-quick button:active{background:var(--todo-soft);}
   .picker-count{text-align:center;font-weight:800;font-size:.85rem;color:var(--todo);margin-top:10px;font-family:"Baloo 2","Noto Sans TC",sans-serif;}
 
+  /* 我的寵物 */
+  .pet-card{
+    background:linear-gradient(160deg,#eaf4ff,#f6fbff);
+    border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px;
+  }
+  .pet-top{display:flex;align-items:center;gap:14px;}
+  .pet-stage{
+    width:76px;height:76px;border-radius:50%;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:2.6rem;
+    background:var(--card);box-shadow:var(--shadow);animation:petbob 2.4s ease-in-out infinite;
+  }
+  @keyframes petbob{0%,100%{transform:translateY(0);}50%{transform:translateY(-5px);}}
+  .pet-info{flex:1;min-width:0;}
+  .pet-name{font-size:1rem;font-weight:900;margin-bottom:2px;}
+  .pet-stage-name{font-size:.76rem;color:var(--ink-soft);font-weight:700;margin-bottom:7px;}
+  .pet-exp-bar{height:8px;border-radius:99px;background:#d6e6f5;overflow:hidden;}
+  .pet-exp-fill{height:100%;background:linear-gradient(90deg,var(--todo),var(--wish));border-radius:99px;transition:width .5s ease;}
+  .pet-exp-text{font-size:.72rem;color:var(--ink-soft);font-weight:700;margin-top:5px;font-family:"Baloo 2","Noto Sans TC",sans-serif;}
+  .pet-hint{
+    margin-top:12px;background:var(--card);border-radius:12px;padding:9px 12px;
+    font-size:.78rem;color:var(--ink-soft);font-weight:600;text-align:center;
+  }
+  /* 挑寵物 */
+  .pet-pick-title{font-size:.95rem;font-weight:900;text-align:center;margin-bottom:4px;}
+  .pet-pick-sub{font-size:.78rem;color:var(--ink-soft);text-align:center;margin-bottom:12px;font-weight:600;}
+  .pet-pick-row{display:flex;gap:10px;}
+  .pet-opt{
+    flex:1;background:var(--card);border:2px solid var(--line);border-radius:14px;
+    padding:14px 6px;display:flex;flex-direction:column;align-items:center;gap:5px;transition:.15s;
+  }
+  .pet-opt:active{transform:scale(.95);}
+  .pet-opt .pe{font-size:2rem;}
+  .pet-opt .pn{font-size:.8rem;font-weight:800;}
+
   /* 提醒條 */
   #reminderArea{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
   #reminderArea:empty{margin-bottom:0;}
@@ -408,6 +442,9 @@
 
     <!-- 提醒條（放假提醒、未完成提醒） -->
     <div id="reminderArea"></div>
+
+    <!-- 我的寵物 -->
+    <div class="pet-card" id="petCard"></div>
 
     <!-- 看大家 -->
     <div class="members-bar" id="membersBar"></div>
@@ -680,6 +717,7 @@ function enterSpace(spaceId){
   viewingName = myProfile.name || "我";
   switchList("todo");
   updateViewBanner();
+  renderPet();
   listenItems();
   listenSpace();
   renderCalendar();
@@ -885,6 +923,72 @@ $("pSave").onclick = async () => {
   $("profileModal").classList.remove("show");
   toast("儲存好了 ✨");
 };
+
+// ---------- 我的寵物 ----------
+// 三種寵物，各有成長階段
+const PET_TYPES = {
+  cat:    { name:"貓咪", stages:["🥚","🐱","😺","😸","🦁"] },
+  dog:    { name:"狗狗", stages:["🥚","🐶","🐕","🦮","🐺"] },
+  rabbit: { name:"兔子", stages:["🥚","🐰","🐇","🐇","🦄"] },
+};
+const STAGE_NAMES = ["蛋寶寶","小寶寶","長大中","大孩子","超進化"];
+// 每個階段要幾次打卡
+const STAGE_NEED = [0, 3, 10, 25, 50];
+
+// 目前寵物資料（之後會存進 Firebase，現在先放這裡預覽）
+let myPet = null;   // { type:"cat", exp: 0 }
+
+// 用打卡總次數算出寵物階段
+function petStage(exp){
+  let s = 0;
+  for(let i=0;i<STAGE_NEED.length;i++){ if(exp >= STAGE_NEED[i]) s = i; }
+  return s;
+}
+
+function renderPet(){
+  const card = $("petCard");
+  if(!card) return;
+  // 看別人的書時先不顯示寵物
+  if(viewingUid !== currentUser.uid){ card.style.display="none"; return; }
+  card.style.display = "block";
+
+  // 還沒挑寵物 → 顯示挑選畫面
+  if(!myPet){
+    card.innerHTML = `
+      <div class="pet-pick-title">🥚 挑一隻夥伴吧！</div>
+      <div class="pet-pick-sub">每打一次卡，牠就會長大一點</div>
+      <div class="pet-pick-row">
+        <button class="pet-opt" data-pet="cat"><span class="pe">🐱</span><span class="pn">貓咪</span></button>
+        <button class="pet-opt" data-pet="dog"><span class="pe">🐶</span><span class="pn">狗狗</span></button>
+        <button class="pet-opt" data-pet="rabbit"><span class="pe">🐰</span><span class="pn">兔子</span></button>
+      </div>`;
+    card.querySelectorAll(".pet-opt").forEach(btn=>{
+      btn.onclick = () => { myPet = { type: btn.dataset.pet, exp: 0 }; renderPet(); toast("夥伴來了 🎉"); };
+    });
+    return;
+  }
+
+  // 已經有寵物 → 顯示成長狀態
+  const pet = PET_TYPES[myPet.type];
+  const exp = myPet.exp || 0;
+  const s = petStage(exp);
+  const isMax = s >= STAGE_NEED.length - 1;
+  const need = isMax ? STAGE_NEED[s] : STAGE_NEED[s+1];
+  const prev = STAGE_NEED[s];
+  const pct = isMax ? 100 : Math.round((exp - prev) / (need - prev) * 100);
+
+  card.innerHTML = `
+    <div class="pet-top">
+      <div class="pet-stage">${pet.stages[s]}</div>
+      <div class="pet-info">
+        <div class="pet-name">我的${esc(pet.name)}</div>
+        <div class="pet-stage-name">${STAGE_NAMES[s]} ・ 打卡 ${exp} 次</div>
+        <div class="pet-exp-bar"><div class="pet-exp-fill" style="width:${pct}%"></div></div>
+        <div class="pet-exp-text">${isMax ? "已經最強了 👑" : `再打 ${need - exp} 次卡就會長大`}</div>
+      </div>
+    </div>
+    <div class="pet-hint">${isMax ? "你的夥伴超強的！" : "完成今天的事，餵養你的夥伴 🍖"}</div>`;
+}
 
 // ---------- 清單功能 ----------
 $("toggleTodo").onclick = () => switchList("todo");
@@ -1094,6 +1198,7 @@ function listenItems(){
     renderItems();
     renderCalendar();
     renderReminders();
+    renderPet();
     if(selectedDay) renderDayDetail(selectedDay);
   });
 }
