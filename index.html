@@ -113,15 +113,6 @@
   .menu .code-row{padding:10px 12px;font-size:.78rem;color:var(--ink-soft);border-bottom:1px solid var(--line);margin-bottom:4px;}
   .menu .code-row b{display:block;font-family:"Baloo 2",sans-serif;font-size:1rem;letter-spacing:.15em;color:var(--ink);margin-top:2px;}
 
-  /* 分頁列 */
-  .tabs{display:flex;gap:6px;padding:0 18px 12px;}
-  .tab{
-    flex:1;padding:11px 0;text-align:center;border-radius:12px;font-weight:700;font-size:.88rem;
-    color:var(--ink-soft);background:#f4f9fe;border:1.5px solid var(--line);transition:.15s;
-  }
-  .tab.active{background:var(--todo);border-color:var(--todo);color:#fff;}
-  .tab:active{transform:scale(.97);}
-
   .page{display:none;flex:1;padding:6px 18px 60px;overflow-y:auto;}
   .page.show{display:block;}
 
@@ -196,7 +187,7 @@
   .view-banner{
     display:flex;align-items:center;justify-content:space-between;gap:10px;
     background:var(--todo-soft);border:1px solid var(--todo);border-radius:12px;
-    padding:10px 14px;margin:0 18px 14px;font-size:.85rem;color:var(--ink);
+    padding:10px 14px;margin-bottom:14px;font-size:.85rem;color:var(--ink);
   }
   .view-banner b{color:var(--todo);}
   .view-banner button{
@@ -339,7 +330,7 @@
   .picker-count{text-align:center;font-weight:800;font-size:.85rem;color:var(--todo);margin-top:10px;font-family:"Baloo 2","Noto Sans TC",sans-serif;}
 
   /* 提醒條 */
-  #reminderArea{display:flex;flex-direction:column;gap:8px;margin:0 18px 14px;}
+  #reminderArea{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
   #reminderArea:empty{margin-bottom:0;}
   .reminder{
     display:flex;align-items:center;gap:8px;border-radius:12px;padding:11px 14px;
@@ -412,33 +403,19 @@
     </div>
   </div>
 
-  <!-- 分頁列 -->
-  <div class="tabs">
-    <button class="tab active" data-page="listPage">📌 清單</button>
-    <button class="tab" data-page="calPage">📅 日曆</button>
-    <button class="tab" data-page="peoplePage">👀 大家</button>
-  </div>
-
-  <!-- 提醒條（每頁都看得到） -->
-  <div id="reminderArea"></div>
-
-  <!-- 正在看誰的書（每頁都看得到） -->
-  <div class="view-banner" id="viewBanner" style="display:none;"></div>
-
-  <!-- 第一頁：清單 -->
+  <!-- 主頁（全部在同一頁） -->
   <div class="page show" id="listPage">
-    <div class="list-toggle">
-      <button class="active todo" id="toggleTodo">📌 要做的事</button>
-      <button class="wish" id="toggleWish">⭐ 想做的事</button>
-    </div>
 
-    <button class="add-open-btn" id="addRow">＋ 新增</button>
+    <!-- 提醒條（放假提醒、未完成提醒） -->
+    <div id="reminderArea"></div>
 
-    <div class="item-list" id="itemList"></div>
-  </div>
+    <!-- 看大家 -->
+    <div class="members-bar" id="membersBar"></div>
 
-  <!-- 第二頁：日曆 -->
-  <div class="page" id="calPage">
+    <!-- 正在看誰的書 -->
+    <div class="view-banner" id="viewBanner" style="display:none;"></div>
+
+    <!-- 小月曆 -->
     <div class="mini-cal">
       <div class="cal-head">
         <button id="prevMonth">‹</button>
@@ -448,12 +425,17 @@
       <div class="cal-grid" id="calGrid"></div>
     </div>
 
+    <!-- 那天做了什麼 -->
     <div class="day-detail" id="dayDetail"></div>
-  </div>
 
-  <!-- 第三頁：大家 -->
-  <div class="page" id="peoplePage">
-    <div class="members-bar" id="membersBar"></div>
+    <div class="list-toggle">
+      <button class="active todo" id="toggleTodo">📌 要做的事</button>
+      <button class="wish" id="toggleWish">⭐ 想做的事</button>
+    </div>
+
+    <button class="add-open-btn" id="addRow">＋ 新增</button>
+
+    <div class="item-list" id="itemList"></div>
   </div>
 </div>
 
@@ -697,7 +679,6 @@ function enterSpace(spaceId){
   viewingUid = currentUser.uid;
   viewingName = myProfile.name || "我";
   switchList("todo");
-  goToPage("listPage");
   updateViewBanner();
   listenItems();
   listenSpace();
@@ -777,13 +758,6 @@ function viewItems(uid, name){
     b.classList.toggle("active", b.dataset.uid === uid);
   });
   updateViewBanner();
-  goToPage("listPage");   // 點了誰就跳去看他的清單
-}
-
-// 切換到某一頁
-function goToPage(pageId){
-  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.page === pageId));
-  document.querySelectorAll(".page").forEach(p => p.classList.toggle("show", p.id === pageId));
 }
 
 // 顯示「正在看誰的書」橫條，並切換能不能編輯
@@ -911,11 +885,6 @@ $("pSave").onclick = async () => {
   $("profileModal").classList.remove("show");
   toast("儲存好了 ✨");
 };
-
-// ---------- 分頁切換 ----------
-document.querySelectorAll(".tab").forEach(tab => {
-  tab.onclick = () => goToPage(tab.dataset.page);
-});
 
 // ---------- 清單功能 ----------
 $("toggleTodo").onclick = () => switchList("todo");
