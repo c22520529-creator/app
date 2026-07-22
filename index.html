@@ -354,6 +354,13 @@
   }
   .pet-img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 8px 14px rgba(31,58,95,.18));}
   @keyframes petbob{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
+  .pet-big.grew{animation:petgrow 1s ease;}
+  @keyframes petgrow{
+    0%{transform:scale(.5) rotate(-8deg);opacity:.4;}
+    50%{transform:scale(1.15) rotate(4deg);}
+    75%{transform:scale(.96) rotate(-2deg);}
+    100%{transform:scale(1) rotate(0);}
+  }
   .pet-name{font-size:1.15rem;font-weight:900;margin-bottom:3px;}
   .pet-stage-name{font-size:.82rem;color:var(--ink-soft);font-weight:700;margin-bottom:12px;}
   .pet-exp-bar{height:10px;border-radius:99px;background:#d6e6f5;overflow:hidden;max-width:280px;margin:0 auto;}
@@ -951,8 +958,21 @@ const PET_IMAGES = [
 const STAGE_NAMES = ["蛋寶寶","小寶寶","長大中","大倉鼠"];
 const STAGE_NEED = [0, 3, 10, 25];   // 每個階段要幾次打卡
 
-// 目前寵物資料（之後會存進 Firebase，現在先放這裡預覽）
-let myPet = { exp: 0 };
+// 經驗值 = 所有打卡次數 + 完成的一次性目標（直接從資料算，不用另外存）
+function petExp(){
+  let n = 0;
+  allItems.forEach(it => {
+    const isHabit = it.goal && it.goal > 0;
+    if(isHabit){
+      if(it.checkins) n += Object.values(it.checkins).filter(Boolean).length;
+    }else if(it.done){
+      n += 1;
+    }
+  });
+  return n;
+}
+
+let lastPetStage = null;   // 記住上次階段，用來偵測長大
 
 // 用打卡總次數算出寵物階段
 function petStage(exp){
@@ -965,18 +985,22 @@ function renderPet(){
   const card = $("petCard");
   if(!card) return;
   // 看別人的書時先不顯示寵物
-  if(viewingUid !== currentUser.uid){ card.style.display="none"; return; }
+  if(viewingUid !== currentUser.uid){ card.style.display="none"; lastPetStage=null; return; }
   card.style.display = "block";
 
-  const exp = (myPet && myPet.exp) || 0;
+  const exp = petExp();
   const s = petStage(exp);
   const isMax = s >= STAGE_NEED.length - 1;
   const need = isMax ? STAGE_NEED[s] : STAGE_NEED[s+1];
   const prev = STAGE_NEED[s];
   const pct = isMax ? 100 : Math.round((exp - prev) / (need - prev) * 100);
 
+  // 長大了！慶祝一下
+  const grew = lastPetStage !== null && s > lastPetStage;
+  lastPetStage = s;
+
   card.innerHTML = `
-    <div class="pet-big">
+    <div class="pet-big${grew ? ' grew' : ''}">
       <img class="pet-img" src="${PET_IMAGES[s]}" alt="">
     </div>
     <div class="pet-name">我的倉鼠 🐹</div>
@@ -984,6 +1008,8 @@ function renderPet(){
     <div class="pet-exp-bar"><div class="pet-exp-fill" style="width:${pct}%"></div></div>
     <div class="pet-exp-text">${isMax ? "已經長到最大了 👑" : `再打 ${need - exp} 次卡就會長大`}</div>
     <div class="pet-hint">${isMax ? "你把牠養得超好的！" : "完成今天的事，餵養你的倉鼠 🌰"}</div>`;
+
+  if(grew) toast(`倉鼠長大了！變成${STAGE_NAMES[s]} 🎉`);
 }
 
 // ---------- 分頁切換 ----------
