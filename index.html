@@ -919,6 +919,7 @@ function viewItems(uid, name){
   viewingUid = uid;
   viewingName = name;
   selectedDay = null;
+  loadOtherPet(uid);
   listenItems();
   document.querySelectorAll("#membersBar .member").forEach(b=>{
     b.classList.toggle("active", b.dataset.uid === uid);
@@ -1150,13 +1151,45 @@ function playHatchAnimation(imgs, babyImg, onDone){
   }, 600);
 }
 
+// 讀別人的寵物資料
+let otherPet = null;
+async function loadOtherPet(uid){
+  if(uid === currentUser.uid){ otherPet = null; renderPet(); return; }
+  otherPet = null;
+  try{
+    const snap = await getDoc(doc(db, "users", uid));
+    if(snap.exists()){
+      const d = snap.data();
+      otherPet = { type: d.petType || null, hatched: !!d.petHatched, sleeping: !!d.petSleeping };
+    }
+  }catch(e){}
+  renderPet();
+}
+
 function renderPet(){
   const card = $("petCard");
   if(!card) return;
   if(hatching) return;   // 動畫播放中不要重畫
-  // 看別人的書時先不顯示寵物
-  if(viewingUid !== currentUser.uid){ card.style.display="none"; return; }
   card.style.display = "block";
+
+  // 看別人的寵物（只能看，不能操作）
+  if(viewingUid !== currentUser.uid){
+    if(!otherPet || !otherPet.type){
+      card.innerHTML = `<div class="pet-stage-name" style="padding:24px 0;">${esc(viewingName)} 還沒有養寵物 🥚</div>`;
+      return;
+    }
+    const op = PETS[otherPet.type];
+    const oimg = !otherPet.hatched ? op.imgs[0]
+               : (otherPet.sleeping ? op.imgs[SLEEP_FRAME] : BABY_IMGS[otherPet.type]);
+    card.innerHTML = `
+      <div class="pet-big${otherPet.sleeping ? ' sleeping' : ''}${!otherPet.hatched ? ' still' : ''}">
+        <img class="pet-img" src="${oimg}" alt="">
+      </div>
+      <div class="pet-name">${esc(viewingName)} 的${esc(op.name)} ${op.emoji}</div>
+      <div class="pet-stage-name">${!otherPet.hatched ? "還是一顆蛋 🥚" : (otherPet.sleeping ? "正在睡覺 💤" : "小寶寶")}</div>
+      <div class="pet-hint">👀 這是別人的寵物，只能看喔</div>`;
+    return;
+  }
 
   // 還沒選寵物 → 顯示選擇畫面
   if(!myPetType){
