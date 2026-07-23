@@ -1245,21 +1245,49 @@ function bindResetPet(){
 }
 
 // ---------- 打卡獎勵 ----------
-function openRewardModal(){
+let rewardTarget = null;   // 這次獎勵要記在哪一筆
+
+function openRewardModal(ref, dayKey){
+  rewardTarget = { ref, dayKey };
   // 券圖跟著養的寵物換（還沒選就先用倉鼠的）
   const t = myPetType || "ham";
   $("couponImg").src = COUPONS[t];
   $("coinImg").src = COINS_IMG[t];
   $("rewardModal").classList.add("show");
 }
+
 async function giveReward(kind){
   if(kind === "ticket"){ myTickets += 1; }
   else { myCoins += 10; }
   $("rewardModal").classList.remove("show");
   renderWallet();
+  // 記住這次選了什麼（取消時才知道要收回哪個）
+  if(rewardTarget && rewardTarget.ref){
+    const patch = rewardTarget.dayKey
+      ? { [`checkins.${rewardTarget.dayKey}`]: kind }
+      : { rewardKind: kind };
+    await updateDoc(rewardTarget.ref, patch).catch(()=>{});
+  }
+  rewardTarget = null;
   await setDoc(doc(db,"users",currentUser.uid),
     { tickets: myTickets, coins: myCoins },{merge:true}).catch(()=>{});
   toast(kind === "ticket" ? "拿到一張遊戲券 🎟️" : "拿到 10 元 🪙");
+}
+
+// 取消打卡 → 收回獎勵
+async function takeBackReward(got){
+  if(got === "ticket"){
+    myTickets = Math.max(0, myTickets - 1);
+    toast("收回一張遊戲券 🎟️");
+  }else if(got === "coin"){
+    myCoins = Math.max(0, myCoins - 10);
+    toast("收回 10 元 🪙");
+  }else{
+    return;   // 沒領過獎勵就不用收
+  }
+  renderWallet();
+  await setDoc(doc(db,"users",currentUser.uid),
+    { tickets: myTickets, coins: myCoins },{merge:true}).catch(()=>{});
 }
 $("pickTicket").onclick = () => giveReward("ticket");
 $("pickCoin").onclick   = () => giveReward("coin");
