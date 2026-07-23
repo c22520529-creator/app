@@ -1636,21 +1636,29 @@ function renderItems(){
       const isHabit = btn.dataset.habit === "true";
       const checked = btn.dataset.checked === "true";
       const ref = doc(db, "users", currentUser.uid, "items", id);
+      const item = allItems.find(i => i.id === id);
       if(isHabit){
         // 今天打卡 / 取消打卡
         const tKey2 = todayKey();
         if(checked){
+          // 取消打卡 → 把那次拿的獎勵收回來
+          const got = (item && item.checkins) ? item.checkins[tKey2] : null;
           await updateDoc(ref, { [`checkins.${tKey2}`]: deleteField() });
+          await takeBackReward(got);
         }else{
           await updateDoc(ref, { [`checkins.${tKey2}`]: true });
-          openRewardModal();
+          openRewardModal(ref, tKey2);
         }
       }else{
-        await updateDoc(ref, {
-          done: !checked,
-          doneAt: !checked ? serverTimestamp() : null
-        });
-        if(!checked) openRewardModal();
+        if(checked){
+          // 取消完成 → 收回獎勵
+          const got = item ? item.rewardKind : null;
+          await updateDoc(ref, { done:false, doneAt:null, rewardKind: deleteField() });
+          await takeBackReward(got);
+        }else{
+          await updateDoc(ref, { done:true, doneAt: serverTimestamp() });
+          openRewardModal(ref, null);
+        }
       }
     };
   });
