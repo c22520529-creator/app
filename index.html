@@ -446,23 +446,38 @@
     font-weight:800;font-size:.88rem;font-family:"Baloo 2","Noto Sans TC",sans-serif;
   }
 
-  /* 遊戲區 */
-  .game-list{margin-top:16px;}
-  .game-list h3{font-size:.95rem;font-weight:900;margin-bottom:10px;text-align:center;}
-  .game-card{
-    background:var(--card);border:1.5px solid var(--line);border-radius:16px;
-    padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;
+  /* 可點的券 */
+  .wallet-item.clickable{
+    background:var(--todo-soft);border-color:var(--todo);color:var(--ink);
+    cursor:pointer;transition:.15s;
   }
-  .game-icon{font-size:2rem;flex-shrink:0;}
-  .game-info{flex:1;min-width:0;}
-  .game-title{font-weight:900;font-size:.95rem;}
-  .game-desc{font-size:.75rem;color:var(--ink-soft);font-weight:600;margin-top:2px;}
-  .game-play{
-    background:var(--todo);color:#fff;border-radius:99px;padding:9px 18px;
-    font-weight:800;font-size:.82rem;flex-shrink:0;
+  .wallet-item.clickable:active{transform:scale(.95);}
+
+  /* 遊戲選單彈窗 */
+  .menu-tickets{
+    text-align:center;font-size:.85rem;color:var(--ink-soft);font-weight:700;margin-bottom:14px;
   }
-  .game-play:active{transform:scale(.95);}
-  .game-play:disabled{background:var(--line);color:var(--ink-soft);}
+  .menu-tickets b{color:var(--todo);font-size:1.05rem;font-family:"Baloo 2",sans-serif;}
+  .menu-games{display:flex;flex-direction:column;gap:9px;}
+  .menu-game{
+    background:var(--paper);border:1.5px solid var(--line);border-radius:15px;
+    padding:13px;display:flex;align-items:center;gap:12px;text-align:left;transition:.15s;width:100%;
+  }
+  .menu-game:active{transform:scale(.97);border-color:var(--todo);background:var(--todo-soft);}
+  .game-icon{font-size:1.9rem;flex-shrink:0;}
+  .game-info{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .game-title{font-weight:900;font-size:.94rem;}
+  .game-desc{font-size:.74rem;color:var(--ink-soft);font-weight:600;margin-top:2px;line-height:1.4;}
+
+  /* 確認要不要玩 */
+  .ask-icon{font-size:3.2rem;text-align:center;margin-bottom:6px;}
+  .ask-title{font-size:1.1rem;font-weight:900;text-align:center;margin-bottom:10px;}
+  .ask-text{font-size:.9rem;text-align:center;line-height:1.7;color:var(--ink);}
+  .ask-text b{color:var(--todo);}
+  .ask-have{
+    text-align:center;font-size:.78rem;color:var(--ink-soft);font-weight:700;
+    margin-top:10px;font-family:"Baloo 2","Noto Sans TC",sans-serif;
+  }
 
   /* 遊戲畫面 */
   .game-screen{
@@ -729,6 +744,11 @@
       </button>
     </div>
   </div>
+</div>
+
+<!-- 遊戲選單彈窗 -->
+<div class="modal-overlay" id="gameMenuModal">
+  <div class="modal" id="gameMenuBox"></div>
 </div>
 
 <div id="toast"></div>
@@ -1450,8 +1470,10 @@ function renderWallet(){
   if(viewingUid !== currentUser.uid){ el.style.display="none"; return; }
   el.style.display = "flex";
   el.innerHTML = `
-    <div class="wallet-item">🎟️ ${myTickets} 張</div>
+    <button class="wallet-item clickable" id="ticketBtn">🎟️ ${myTickets} 張 ▸</button>
     <div class="wallet-item">🪙 ${myCoins} 元</div>`;
+  const tb = $("ticketBtn");
+  if(tb) tb.onclick = openGameMenu;
   // 券數變了，遊戲按鈕也要更新（但正在玩遊戲時不要打斷）
   const ga = $("gameArea");
   if(ga && !ga.querySelector(".game-screen")) renderGames();
@@ -1467,28 +1489,60 @@ const GAMES = [
 ];
 
 function renderGames(){
+  // 遊戲改成從錢包的券點進去，這裡只清空
   const el = $("gameArea");
-  if(!el) return;
-  // 看別人的時候不顯示遊戲
-  if(viewingUid !== currentUser.uid){ el.innerHTML=""; return; }
-  el.innerHTML = `
-    <div class="game-list">
-      <h3>🎮 小遊戲（一張券玩一次）</h3>
+  if(el && !el.querySelector(".game-screen")) el.innerHTML = "";
+}
+
+// 打開遊戲選單
+function openGameMenu(){
+  if(viewingUid !== currentUser.uid) return;
+  const box = $("gameMenuBox");
+  box.innerHTML = `
+    <div class="modal-title">🎮 選一個遊戲</div>
+    <div class="menu-tickets">你有 🎟️ <b>${myTickets}</b> 張遊戲券</div>
+    <div class="menu-games">
       ${GAMES.map(g => `
-        <div class="game-card">
-          <div class="game-icon">${g.icon}</div>
-          <div class="game-info">
-            <div class="game-title">${g.title}</div>
-            <div class="game-desc">${g.desc}</div>
-          </div>
-          <button class="game-play" data-g="${g.id}" ${myTickets<1?"disabled":""}>
-            ${myTickets<1 ? "沒券了" : "🎟️ 玩一次"}
-          </button>
-        </div>`).join("")}
-    </div>`;
-  el.querySelectorAll(".game-play").forEach(b=>{
-    b.onclick = () => startGame(b.dataset.g);
+        <button class="menu-game" data-g="${g.id}">
+          <span class="game-icon">${g.icon}</span>
+          <span class="game-info">
+            <span class="game-title">${g.title}</span>
+            <span class="game-desc">${g.desc}</span>
+          </span>
+        </button>`).join("")}
+    </div>
+    <div class="modal-btns"><button class="m-cancel" id="menuClose">關閉</button></div>`;
+  box.querySelectorAll(".menu-game").forEach(b=>{
+    b.onclick = () => askPlay(b.dataset.g);
   });
+  $("menuClose").onclick = closeGameMenu;
+  $("gameMenuModal").classList.add("show");
+}
+function closeGameMenu(){ $("gameMenuModal").classList.remove("show"); }
+$("gameMenuModal").onclick = (e) => { if(e.target.id === "gameMenuModal") closeGameMenu(); };
+
+// 問要不要花一張券
+function askPlay(id){
+  const g = GAMES.find(x => x.id === id);
+  const box = $("gameMenuBox");
+  const enough = myTickets >= 1;
+  box.innerHTML = `
+    <div class="ask-icon">${g.icon}</div>
+    <div class="ask-title">${g.title}</div>
+    <div class="ask-text">${enough
+      ? "要花 <b>🎟️ 1 張遊戲券</b> 玩這個遊戲嗎？"
+      : "你沒有遊戲券了 🥲<br>完成事情打卡就能拿到券喔！"}</div>
+    <div class="ask-have">目前有 🎟️ ${myTickets} 張</div>
+    <div class="modal-btns">
+      <button class="m-cancel" id="askBack">← 回去選</button>
+      ${enough ? '<button class="m-ok" id="askGo">開始玩！</button>' : ''}
+    </div>`;
+  $("askBack").onclick = openGameMenu;
+  if(enough) $("askGo").onclick = async () => {
+    closeGameMenu();
+    goToPage("gamePage");
+    await startGame(id);
+  };
 }
 
 // 扣一張券
