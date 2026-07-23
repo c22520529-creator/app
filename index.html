@@ -370,6 +370,19 @@
     margin-top:14px;background:var(--card);border-radius:12px;padding:10px 12px;
     font-size:.8rem;color:var(--ink-soft);font-weight:600;
   }
+  /* 蛋掉下來 */
+  .pet-img.egg-drop{animation:eggdrop 1s cubic-bezier(.34,1.56,.64,1);}
+  @keyframes eggdrop{
+    0%{transform:translateY(-160px) rotate(-12deg);opacity:0;}
+    55%{transform:translateY(0) rotate(3deg);opacity:1;}
+    70%{transform:translateY(-18px) rotate(-2deg);}
+    85%{transform:translateY(0) rotate(1deg);}
+    100%{transform:translateY(0) rotate(0);}
+  }
+  .pet-big.still{animation:none;}
+  .pet-img.tappable{cursor:pointer;}
+  .pet-img.tappable:active{transform:scale(.94);}
+
   /* 孵化動畫 */
   .pet-img.shake{animation:eggshake .55s ease;}
   @keyframes eggshake{
@@ -641,6 +654,7 @@ let spaceMembers = {};     // 這個群組的成員資料 { uid: {name, avatar} 
 let myProfile = { name: "", avatar: "" };  // 我的名字跟頭像（頭像可以是 emoji 或照片）
 let petStart = null;                       // 開始養寵物的日期（那天之後的打卡才算）
 let myPetType = null;                      // 養哪一隻：ham / cat
+let petHatched = false;                    // 孵化了沒
 let petSleeping = false;                   // 寵物在睡覺嗎
 let activeList = "todo"; // todo | wish
 let calDate = new Date();
@@ -696,6 +710,7 @@ onAuthStateChanged(auth, async (user) => {
     myProfile.avatar = data.avatar || user.photoURL || "";
     petStart = data.petStart || null;
     myPetType = data.petType || null;
+    petHatched = !!data.petHatched;
     petSleeping = !!data.petSleeping;
     updateMyAvatar();
     const gid = data.spaceId || data.groupId;
@@ -1043,26 +1058,20 @@ function petExp(){
   return n;
 }
 
-let lastStage = null;   // 記住上次的階段，用來觸發動畫
-
-// 用打卡次數算階段
-function petStage(exp){
-  let st = 0;
-  for(let i=0;i<STAGE_NEED.length;i++){ if(exp >= STAGE_NEED[i]) st = i; }
-  return st;
-}
+let hatching = false;   // 正在播孵化動畫
 
 // 播放孵化動畫（一格一格換圖）
 function playHatchAnimation(imgs, onDone){
   const el = document.querySelector("#petCard .pet-img");
   if(!el){ onDone && onDone(); return; }
+  hatching = true;
   let i = 0;
-  el.src = imgs[HATCH_FRAMES[0]];
+  el.classList.remove("egg-drop");
   const timer = setInterval(() => {
     i++;
     if(i >= HATCH_FRAMES.length){
       clearInterval(timer);
-      el.classList.add("pop");
+      hatching = false;
       onDone && onDone();
       return;
     }
@@ -1076,15 +1085,16 @@ function playHatchAnimation(imgs, onDone){
 function renderPet(){
   const card = $("petCard");
   if(!card) return;
+  if(hatching) return;   // 動畫播放中不要重畫
   // 看別人的書時先不顯示寵物
-  if(viewingUid !== currentUser.uid){ card.style.display="none"; lastStage=null; return; }
+  if(viewingUid !== currentUser.uid){ card.style.display="none"; return; }
   card.style.display = "block";
 
   // 還沒選寵物 → 顯示選擇畫面
   if(!myPetType){
     card.innerHTML = `
       <div class="pet-pick-title">🥚 想養哪一隻？</div>
-      <div class="pet-pick-sub">完成事情就能餵養牠，打卡 ${STAGE_NEED[1]} 次就會孵化</div>
+      <div class="pet-pick-sub">選好之後，蛋就會掉下來囉</div>
       <div class="pet-pick-row">
         <button class="pet-opt" data-t="ham"><img src="${PETS.ham.imgs[7]}"><span class="pn">🐹 倉鼠</span></button>
         <button class="pet-opt" data-t="cat"><img src="${PETS.cat.imgs[7]}"><span class="pn">🐱 貓咪</span></button>
@@ -1092,43 +1102,53 @@ function renderPet(){
     card.querySelectorAll(".pet-opt").forEach(b=>{
       b.onclick = async () => {
         myPetType = b.dataset.t;
+        petHatched = false;
         petSleeping = false;
-        await setDoc(doc(db,"users",currentUser.uid),{ petType: myPetType },{merge:true}).catch(()=>{});
+        await setDoc(doc(db,"users",currentUser.uid),
+          { petType: myPetType, petHatched:false, petSleeping:false },{merge:true}).catch(()=>{});
         renderPet();
-        toast(`${PETS[myPetType].name}的蛋來了 🥚`);
+        toast("有一顆蛋掉下來了 🥚");
       };
     });
     return;
   }
 
   const pet = PETS[myPetType];
-  const exp = petExp();
-  const st = petStage(exp);
-  const isMax = st >= STAGE_NEED.length - 1;
-  const need = isMax ? STAGE_NEED[st] : STAGE_NEED[st+1];
-  const prev = STAGE_NEED[st];
-  const pct = isMax ? 100 : Math.round((exp - prev) / (need - prev) * 100);
 
-  // 有沒有升級
-  const leveled = lastStage !== null && st > lastStage;
-  const justHatched = leveled && lastStage === 0;   // 從蛋變小寶寶 = 孵化
-  lastStage = st;
+  // 還沒孵化 → 顯示蛋，點一下就孵化
+  if(!petHatched){
+    card.innerHTML = `
+      <div class="pet-big still">
+        <img class="pet-img egg-drop tappable" src="${pet.imgs[0]}" alt="">
+      </div>
+      <div class="pet-name">${esc(pet.name)}的蛋 🥚</div>
+      <div class="pet-stage-name">點一下蛋，看看會發生什麼事？</div>
+      <div class="pet-hint">👆 點蛋蛋</div>`;
+    card.querySelector(".pet-img").onclick = () => {
+      if(hatching) return;
+      toast("蛋動了一下... 🥚");
+      playHatchAnimation(pet.imgs, async () => {
+        petHatched = true;
+        await setDoc(doc(db,"users",currentUser.uid),{ petHatched:true },{merge:true}).catch(()=>{});
+        renderPet();
+        toast(`孵化成功！${pet.name}出生了 🎉`);
+      });
+    };
+    return;
+  }
 
-  // 顯示哪張圖
-  const showImg = petSleeping ? pet.imgs[SLEEP_FRAME] : pet.imgs[STAGE_FRAME[st]];
-
+  // 已經孵化 → 顯示寵物
+  const showImg = petSleeping ? pet.imgs[SLEEP_FRAME] : pet.imgs[STAGE_FRAME[1]];
   card.innerHTML = `
-    <div class="pet-big${petSleeping ? ' sleeping' : ''}${leveled && !justHatched ? ' grew' : ''}">
-      <img class="pet-img" src="${showImg}" alt="">
+    <div class="pet-big${petSleeping ? ' sleeping' : ''}">
+      <img class="pet-img${petSleeping ? '' : ' pop'}" src="${showImg}" alt="">
     </div>
     <div class="pet-name">我的${esc(pet.name)} ${pet.emoji}</div>
-    <div class="pet-stage-name">${petSleeping ? "呼呼大睡中... 💤" : `${STAGE_NAMES[st]} ・ 打卡 ${exp} 次`}</div>
-    <div class="pet-exp-bar"><div class="pet-exp-fill" style="width:${pct}%"></div></div>
-    <div class="pet-exp-text">${isMax ? "已經長到最大了 👑" : `再打 ${need - exp} 次卡就會長大`}</div>
+    <div class="pet-stage-name">${petSleeping ? "呼呼大睡中... 💤" : "小寶寶"}</div>
     <div class="pet-actions">
       <button class="pet-btn" id="sleepBtn">${petSleeping ? "☀️ 起床囉" : "💤 去睡覺"}</button>
     </div>
-    <div class="pet-hint">${petSleeping ? "噓～牠正在睡覺 😴" : (st === 0 ? "完成今天的事，幫蛋加油 🥚" : "牠很喜歡跟你在一起 💕")}</div>`;
+    <div class="pet-hint">${petSleeping ? "噓～牠正在睡覺 😴" : "牠很喜歡跟你在一起 💕"}</div>`;
 
   $("sleepBtn").onclick = async () => {
     petSleeping = !petSleeping;
@@ -1136,14 +1156,6 @@ function renderPet(){
     renderPet();
     toast(petSleeping ? "晚安 😴" : "早安 ☀️");
   };
-
-  // 孵化了 → 播放動畫
-  if(justHatched && !petSleeping){
-    toast("蛋動了一下... 🥚");
-    playHatchAnimation(pet.imgs, () => toast(`孵化成功！${pet.name}出生了 🎉`));
-  }else if(leveled && !petSleeping){
-    toast(`長大了！變成${STAGE_NAMES[st]} 🎉`);
-  }
 }
 
 // ---------- 分頁切換 ----------
