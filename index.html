@@ -438,7 +438,7 @@
   .reward-opt .rn{font-size:.9rem;font-weight:800;}
   /* 錢包 */
   .wallet{
-    display:flex;gap:10px;justify-content:center;margin-bottom:14px;
+    display:flex;gap:10px;justify-content:center;align-items:center;margin-bottom:14px;flex-wrap:wrap;
   }
   .wallet-item{
     display:flex;align-items:center;gap:6px;background:var(--card);
@@ -446,12 +446,26 @@
     font-weight:800;font-size:.88rem;font-family:"Baloo 2","Noto Sans TC",sans-serif;
   }
 
-  /* 可點的券 */
-  .wallet-item.clickable{
-    background:var(--todo-soft);border-color:var(--todo);color:var(--ink);
-    cursor:pointer;transition:.15s;
+  /* 券卡（點了開遊戲選單） */
+  .ticket-card{
+    position:relative;width:172px;padding:0;border:none;background:none;
+    border-radius:10px;overflow:hidden;cursor:pointer;transition:.15s;
+    box-shadow:0 4px 12px rgba(107,74,50,.14);flex-shrink:0;
   }
-  .wallet-item.clickable:active{transform:scale(.95);}
+  .ticket-card:active{transform:scale(.96);}
+  .ticket-card img{width:100%;display:block;}
+  /* 蓋掉券上印的「1」 */
+  .tk-patch{
+    position:absolute;left:83.8%;top:59.5%;transform:translate(-50%,-50%);
+    width:11%;height:16%;background:#fdf6e9;border-radius:3px;
+  }
+  .tk-num{
+    position:absolute;left:83.8%;top:59.5%;transform:translate(-50%,-50%);
+    font-family:"Baloo 2","Noto Sans TC",sans-serif;font-weight:800;
+    color:#6f9ad4;font-size:1.15rem;line-height:1;
+  }
+  .tk-num.small{font-size:.9rem;letter-spacing:-.02em;}
+  .coin-item img{width:26px;height:26px;object-fit:contain;}
 
   /* 遊戲選單彈窗 */
   .menu-tickets{
@@ -1470,8 +1484,14 @@ function renderWallet(){
   if(viewingUid !== currentUser.uid){ el.style.display="none"; return; }
   el.style.display = "flex";
   el.innerHTML = `
-    <button class="wallet-item clickable" id="ticketBtn">🎟️ ${myTickets} 張 ▸</button>
-    <div class="wallet-item">🪙 ${myCoins} 元</div>`;
+    <button class="ticket-card" id="ticketBtn" title="點我玩遊戲">
+      <img src="${COUPONS[myPetType || "ham"]}" alt="">
+      <span class="tk-patch"></span>
+      <span class="tk-num${myTickets>9?" small":""}">${myTickets}</span>
+    </button>
+    <div class="wallet-item coin-item">
+      <img src="${COINS_IMG[myPetType || "ham"]}" alt=""> ${myCoins} 元
+    </div>`;
   const tb = $("ticketBtn");
   if(tb) tb.onclick = openGameMenu;
   // 券數變了，遊戲按鈕也要更新（但正在玩遊戲時不要打斷）
