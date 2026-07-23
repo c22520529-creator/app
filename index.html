@@ -9,19 +9,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink:#1f3a5f;
-    --ink-soft:#7e9bbd;
-    --paper:#eef5fc;
-    --card:#ffffff;
-    --line:#d6e6f5;
-    --todo:#3b8fe0;
-    --todo-soft:#dcecfb;
-    --wish:#5bb4d4;
-    --wish-soft:#dcf0f7;
-    --gold:#f0b53d;
-    --green:#3bae8c;
+    --ink:#6b4a32;
+    --ink-soft:#b79c85;
+    --paper:#fdf6ea;
+    --card:#fffdf8;
+    --line:#f0e2cd;
+    --todo:#e8a54f;
+    --todo-soft:#fceedb;
+    --wish:#e79aa4;
+    --wish-soft:#fce7e9;
+    --gold:#e8b04b;
+    --green:#8aa96a;
     --radius:18px;
-    --shadow:0 8px 24px rgba(31,58,95,.10);
+    --shadow:0 8px 24px rgba(107,74,50,.10);
     font-size:16px;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -92,7 +92,7 @@
   /* ---------- 主畫面 ---------- */
   #appView{display:none;min-height:100vh;flex-direction:column;
     max-width:640px;width:100%;margin:0 auto;
-    background:var(--card);box-shadow:0 0 40px rgba(44,42,61,.06);}
+    background:var(--card);box-shadow:0 0 40px rgba(107,74,50,.06);}
   #appView.show{display:flex;}
 
   .topbar{
@@ -116,14 +116,14 @@
   /* 分頁列（膠囊式） */
   .tabs{
     display:flex;gap:4px;margin:0 18px 14px;padding:5px;
-    background:#e3eefb;border-radius:99px;
+    background:#f5e6d0;border-radius:99px;
   }
   .tab{
     flex:1;padding:10px 4px;text-align:center;border-radius:99px;
     font-weight:700;font-size:.85rem;color:var(--ink-soft);
     background:transparent;transition:.18s;white-space:nowrap;
   }
-  .tab.active{background:var(--card);color:var(--ink);box-shadow:0 2px 8px rgba(31,58,95,.12);}
+  .tab.active{background:var(--card);color:var(--ink);box-shadow:0 2px 8px rgba(107,74,50,.12);}
   .tab:active{transform:scale(.96);}
 
   .page{display:none;flex:1;padding:6px 18px 60px;overflow-y:auto;}
@@ -141,7 +141,7 @@
 
   .item-list{display:flex;flex-direction:column;gap:10px;}
   .item{
-    display:flex;align-items:center;gap:12px;background:#f4f9fe;
+    display:flex;align-items:center;gap:12px;background:#fdf4e6;
     border:1px solid var(--line);
     padding:13px 14px;border-radius:14px;
     animation:popin .25s ease;
@@ -162,7 +162,7 @@
   .item.done .item-text{color:var(--ink-soft);text-decoration:line-through;}
   /* 進度條（每月習慣） */
   .goal-wrap{display:flex;align-items:center;gap:8px;}
-  .goal-bar{flex:1;height:6px;border-radius:99px;background:#d6e6f5;overflow:hidden;}
+  .goal-bar{flex:1;height:6px;border-radius:99px;background:#eddcc4;overflow:hidden;}
   .goal-fill{height:100%;background:var(--todo);border-radius:99px;transition:width .3s ease;}
   .goal-fill.reached{background:var(--green);}
   .goal-text{font-size:.74rem;font-weight:700;color:var(--ink-soft);font-family:"Baloo 2",sans-serif;white-space:nowrap;}
@@ -175,7 +175,7 @@
   /* 日曆頁 */
   /* 看大家 */
   .members-bar{
-    background:#f4f9fe;border:1px solid var(--line);border-radius:14px;
+    background:#fdf4e6;border:1px solid var(--line);border-radius:14px;
     padding:12px 14px;margin-bottom:14px;
   }
   .members-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
@@ -234,7 +234,7 @@
 
   /* 小月曆 */
   .mini-cal{
-    background:#f4f9fe;border:1px solid var(--line);border-radius:16px;
+    background:#fdf4e6;border:1px solid var(--line);border-radius:16px;
     padding:12px 14px;margin-bottom:14px;
   }
   .cal-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px;}
@@ -258,7 +258,7 @@
   .dot.wish{background:var(--wish);}
   .cal-cell.selected{background:var(--ink);color:#fff;}
 
-  .day-detail{background:#f4f9fe;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px;}
+  .day-detail{background:#fdf4e6;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px;}
   .day-detail h3{font-size:.95rem;font-weight:800;margin-bottom:10px;}
   .day-detail .dgroup{margin-bottom:12px;}
   .day-detail .dgroup-title{font-size:.78rem;color:var(--ink-soft);font-weight:700;margin-bottom:6px;}
@@ -279,13 +279,13 @@
 
   /* 彈窗 */
   .modal-overlay{
-    position:fixed;inset:0;background:rgba(31,58,95,.4);
+    position:fixed;inset:0;background:rgba(107,74,50,.4);
     display:none;align-items:center;justify-content:center;padding:18px;z-index:200;
   }
   .modal-overlay.show{display:flex;}
   .modal{
     background:var(--card);border-radius:22px;padding:22px;width:100%;max-width:420px;
-    max-height:90vh;overflow-y:auto;box-shadow:0 20px 50px rgba(31,58,95,.25);
+    max-height:90vh;overflow-y:auto;box-shadow:0 20px 50px rgba(107,74,50,.25);
     animation:modalin .25s ease;
   }
   @keyframes modalin{from{opacity:0;transform:translateY(20px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}
@@ -344,7 +344,7 @@
 
   /* 我的寵物 */
   .pet-card{
-    background:linear-gradient(160deg,#eaf4ff,#f6fbff);
+    background:linear-gradient(160deg,#fdf0dd,#fffaf2);
     border:1px solid var(--line);border-radius:18px;padding:20px 18px;margin-bottom:14px;text-align:center;
   }
   .pet-big{
@@ -352,7 +352,7 @@
     display:flex;align-items:center;justify-content:center;
     animation:petbob 2.6s ease-in-out infinite;
   }
-  .pet-img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 8px 14px rgba(31,58,95,.18));}
+  .pet-img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 8px 14px rgba(107,74,50,.18));}
   @keyframes petbob{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
   .pet-big.grew{animation:petgrow 1s ease;}
   @keyframes petgrow{
@@ -363,7 +363,7 @@
   }
   .pet-name{font-size:1.15rem;font-weight:900;margin-bottom:3px;}
   .pet-stage-name{font-size:.82rem;color:var(--ink-soft);font-weight:700;margin-bottom:12px;}
-  .pet-exp-bar{height:10px;border-radius:99px;background:#d6e6f5;overflow:hidden;max-width:280px;margin:0 auto;}
+  .pet-exp-bar{height:10px;border-radius:99px;background:#eddcc4;overflow:hidden;max-width:280px;margin:0 auto;}
   .pet-exp-fill{height:100%;background:linear-gradient(90deg,var(--todo),var(--wish));border-radius:99px;transition:width .5s ease;}
   .pet-exp-text{font-size:.78rem;color:var(--ink-soft);font-weight:700;margin-top:7px;font-family:"Baloo 2","Noto Sans TC",sans-serif;}
   .pet-hint{
