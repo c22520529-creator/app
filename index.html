@@ -403,12 +403,13 @@
   .pet-big.sleeping{animation:petsleep 3.5s ease-in-out infinite;}
   @keyframes petsleep{0%,100%{transform:scale(1);}50%{transform:scale(1.04);}}
   /* 按鈕 */
-  .pet-actions{margin-top:14px;display:flex;justify-content:center;}
+  .pet-actions{margin-top:14px;display:flex;justify-content:center;gap:8px;}
   .pet-btn{
     background:var(--card);border:1.5px solid var(--line);border-radius:99px;
     padding:9px 22px;font-weight:800;font-size:.85rem;color:var(--ink);
   }
   .pet-btn:active{transform:scale(.95);}
+  .pet-btn.small{padding:9px 16px;font-size:.8rem;color:var(--ink-soft);}
   /* 選寵物 */
   .pet-pick-title{font-size:1.05rem;font-weight:900;margin-bottom:4px;}
   .pet-pick-sub{font-size:.8rem;color:var(--ink-soft);margin-bottom:16px;font-weight:600;}
@@ -1132,6 +1133,7 @@ function renderPet(){
       </div>
       <div class="pet-name">${esc(pet.name)}的蛋 🥚</div>
       <div class="pet-stage-name">點一下蛋，看看會發生什麼事？</div>
+      <div class="pet-actions"><button class="pet-btn small" id="resetPetBtn">🔄 換一隻</button></div>
       <div class="pet-hint">👆 點蛋蛋</div>`;
     card.querySelector(".pet-img").onclick = () => {
       if(hatching) return;
@@ -1143,6 +1145,7 @@ function renderPet(){
         toast(`孵化成功！${pet.name}出生了 🎉`);
       });
     };
+    bindResetPet();
     return;
   }
 
@@ -1156,6 +1159,7 @@ function renderPet(){
     <div class="pet-stage-name">${petSleeping ? "呼呼大睡中... 💤" : "小寶寶"}</div>
     <div class="pet-actions">
       <button class="pet-btn" id="sleepBtn">${petSleeping ? "☀️ 起床囉" : "💤 去睡覺"}</button>
+      <button class="pet-btn small" id="resetPetBtn">🔄 換一隻</button>
     </div>
     <div class="pet-hint">${petSleeping ? "噓～牠正在睡覺 😴" : "牠很喜歡跟你在一起 💕"}</div>`;
 
@@ -1164,6 +1168,21 @@ function renderPet(){
     await setDoc(doc(db,"users",currentUser.uid),{ petSleeping },{merge:true}).catch(()=>{});
     renderPet();
     toast(petSleeping ? "晚安 😴" : "早安 ☀️");
+  };
+  bindResetPet();
+}
+
+// 換一隻（重新選寵物）
+function bindResetPet(){
+  const btn = $("resetPetBtn");
+  if(!btn) return;
+  btn.onclick = async () => {
+    myPetType = null;
+    petHatched = false;
+    petSleeping = false;
+    await setDoc(doc(db,"users",currentUser.uid),
+      { petType:null, petHatched:false, petSleeping:false },{merge:true}).catch(()=>{});
+    renderPet();
   };
 }
 
