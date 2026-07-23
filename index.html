@@ -467,6 +467,45 @@
   .tk-num.small{font-size:.9rem;letter-spacing:-.02em;}
   .coin-item img{width:26px;height:26px;object-fit:contain;}
 
+  /* 邀請一起玩 */
+  #inviteArea:not(:empty){margin-bottom:12px;}
+  .invite-card{
+    background:linear-gradient(150deg,#fceedb,#fffaf2);
+    border:1.5px solid var(--todo);border-radius:16px;padding:13px 14px;
+  }
+  .invite-top{display:flex;align-items:center;gap:9px;}
+  .invite-icon{font-size:1.5rem;flex-shrink:0;}
+  .invite-text{font-size:.85rem;line-height:1.5;font-weight:600;}
+  .invite-text b{color:var(--todo);font-weight:900;}
+  .free-tag{
+    display:inline-block;background:var(--green);color:#fff;border-radius:99px;
+    padding:1px 8px;font-size:.68rem;font-weight:800;margin-left:5px;
+  }
+  .invite-scores{
+    background:var(--card);border-radius:11px;padding:8px 10px;margin-top:10px;
+  }
+  .sc-row{display:flex;align-items:center;gap:8px;font-size:.8rem;padding:3px 0;font-weight:700;}
+  .sc-rank{width:22px;flex-shrink:0;}
+  .sc-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sc-val{color:var(--todo);font-family:"Baloo 2","Noto Sans TC",sans-serif;}
+  .invite-btns{display:flex;gap:8px;align-items:center;margin-top:10px;}
+  .invite-play{
+    flex:1;background:var(--todo);color:#fff;border-radius:99px;
+    padding:10px;font-weight:800;font-size:.85rem;
+  }
+  .invite-play:active{transform:scale(.97);}
+  .invite-end{
+    background:var(--card);border:1.5px solid var(--line);border-radius:99px;
+    padding:10px 14px;font-weight:700;font-size:.8rem;color:var(--ink-soft);
+  }
+  .invite-done{
+    flex:1;text-align:center;font-size:.82rem;font-weight:800;color:var(--green);padding:8px;
+  }
+  /* 確認畫面按鈕排列 */
+  .ask-btns{display:flex;flex-direction:column;gap:9px;margin-top:20px;}
+  .ask-btns .m-ok,.ask-btns .m-cancel{flex:none;width:100%;}
+  .ask-btns .m-ok.invite{background:var(--wish);}
+
   /* 遊戲選單彈窗 */
   .menu-tickets{
     text-align:center;font-size:.85rem;color:var(--ink-soft);font-weight:700;margin-bottom:14px;
@@ -690,6 +729,7 @@
 
   <!-- 第四頁：遊戲（我的寵物） -->
   <div class="page" id="gamePage">
+    <div id="inviteArea"></div>
     <div class="wallet" id="wallet"></div>
     <div class="pet-card" id="petCard"></div>
 
@@ -826,6 +866,8 @@ let unsubSpace = null;
 let viewingUid = null;     // 現在正在看誰的書（預設看自己）
 let viewingName = "";      // 正在看的人的名字
 let spaceMembers = {};     // 這個群組的成員資料 { uid: {name, avatar} }
+let activeInvite = null;   // 目前的遊戲邀請
+let playingInvited = false; // 這局是被邀請來的（免券）
 let myProfile = { name: "", avatar: "" };  // 我的名字跟頭像（頭像可以是 emoji 或照片）
 let petStart = null;                       // 開始養寵物的日期（那天之後的打卡才算）
 let myPetType = null;                      // 養哪一隻：ham / cat
@@ -1013,6 +1055,8 @@ function listenSpace(){
   unsubSpace = onSnapshot(doc(db, "spaces", currentSpaceId), (snap) => {
     if(!snap.exists()) return;
     spaceMembers = snap.data().memberInfo || {};
+    activeInvite = snap.data().gameInvite || null;
+    renderInviteBanner();
     renderMembers(snap.data());
   });
 }
@@ -1553,16 +1597,26 @@ function askPlay(id){
       ? "要花 <b>🎟️ 1 張遊戲券</b> 玩這個遊戲嗎？"
       : "你沒有遊戲券了 🥲<br>完成事情打卡就能拿到券喔！"}</div>
     <div class="ask-have">目前有 🎟️ ${myTickets} 張</div>
-    <div class="modal-btns">
+    <div class="ask-btns">
+      ${enough ? '<button class="m-ok" id="askGo">🎮 自己玩</button>' : ''}
+      ${enough ? '<button class="m-ok invite" id="askInvite">👥 邀請大家一起玩</button>' : ''}
       <button class="m-cancel" id="askBack">← 回去選</button>
-      ${enough ? '<button class="m-ok" id="askGo">開始玩！</button>' : ''}
     </div>`;
   $("askBack").onclick = openGameMenu;
-  if(enough) $("askGo").onclick = async () => {
-    closeGameMenu();
-    goToPage("gamePage");
-    await startGame(id);
-  };
+  if(enough){
+    $("askGo").onclick = async () => {
+      closeGameMenu(); goToPage("gamePage");
+      await startGame(id);
+    };
+    $("askInvite").onclick = async () => {
+      closeGameMenu(); goToPage("gamePage");
+      const ok = await useTicket();
+      if(!ok) return;
+      await sendInvite(id);
+      toast("邀請發出去了！大家可以免費玩 🎮");
+      await startGame(id, true);   // 自己已經扣過券了
+    };
+  }
 }
 
 // 扣一張券
@@ -1580,9 +1634,12 @@ async function winCoins(n){
   await setDoc(doc(db,"users",currentUser.uid),{ coins: myCoins },{merge:true}).catch(()=>{});
 }
 
-async function startGame(id){
-  const ok = await useTicket();
-  if(!ok) return;
+async function startGame(id, freePlay){
+  playingInvited = !!freePlay;
+  if(!freePlay){
+    const ok = await useTicket();
+    if(!ok) return;
+  }
   if(id === "catch") playCatchGame();
   else if(id === "spot") playSpotGame();
   else if(id === "flip") playFlipGame();
@@ -1679,11 +1736,12 @@ function playCatchGame(){
     if(prize > 0){
       res.className = "game-result win";
       res.textContent = `接到 ${score} 個！🎉 +${prize} 元`;
-      winCoins(prize);
+      finishGame(prize);
       toast(`拿到 ${prize} 元 🪙`);
     }else{
       res.className = "game-result lose";
       res.textContent = `只接到 ${score} 個，下次加油 💪`;
+      finishGame(0);
     }
   }
 
@@ -1741,6 +1799,7 @@ function playSpotGame(){
       const res = $("spotResult");
       res.className = "game-result lose";
       res.textContent = `時間到！只找到 ${found} 個 😢`;
+      finishGame(0);
       el.querySelectorAll(".spot-diff").forEach(b => b.classList.add("found"));
     }
   }, 1000);
@@ -1757,7 +1816,7 @@ function playSpotGame(){
         const res = $("spotResult");
         res.className = "game-result win";
         res.textContent = `全部找到了！🎉 +${prize} 元`;
-        winCoins(prize);
+        finishGame(prize);
         toast(`拿到 ${prize} 元 🪙`);
       }
     };
@@ -1816,7 +1875,7 @@ function playFlipGame(){
               const prize = moves <= 10 ? 30 : (moves <= 16 ? 20 : 10);
               $("flipResult").className = "game-result win";
               $("flipResult").textContent = `全部配對成功！用了 ${moves} 次 🎉 +${prize} 元`;
-              winCoins(prize);
+              finishGame(prize);
               toast(`贏了！拿到 ${prize} 元 🪙`);
             }
           }, 350);
@@ -1882,17 +1941,104 @@ function playRpsGame(){
       if(myWin === 2){
         res.className = "game-result win";
         res.textContent = "你贏了！🎉 +25 元";
-        winCoins(25);
+        finishGame(25);
         toast("贏了！拿到 25 元 🪙");
       }else if(petWin === 2){
         res.className = "game-result lose";
         res.textContent = "寵物贏了 😢 下次加油！";
+        finishGame(0);
       }else{
         res.className = "game-result";
         res.textContent = msg;
       }
     };
   });
+}
+
+
+// ---------- 一起玩（邀請） ----------
+// 發出邀請（存在群組資料裡，大家都看得到）
+async function sendInvite(gameId){
+  if(!currentSpaceId) return;
+  const g = GAMES.find(x=>x.id===gameId);
+  await updateDoc(doc(db,"spaces",currentSpaceId), {
+    gameInvite: {
+      from: currentUser.uid,
+      fromName: myProfile.name || "我",
+      gameId,
+      gameTitle: g ? g.title : "遊戲",
+      at: Date.now(),
+      scores: {}
+    }
+  }).catch(()=>{});
+}
+
+// 遊戲結束時記下分數
+async function reportScore(prize){
+  if(!activeInvite || !currentSpaceId) return;
+  await updateDoc(doc(db,"spaces",currentSpaceId), {
+    [`gameInvite.scores.${currentUser.uid}`]: {
+      name: myProfile.name || "我",
+      score: prize
+    }
+  }).catch(()=>{});
+}
+
+// 遊戲結束統一入口：給錢 + 記分數
+function finishGame(prize){
+  if(prize > 0) winCoins(prize);
+  reportScore(prize);
+  playingInvited = false;
+}
+
+// 邀請橫幅（在遊戲頁最上面）
+function renderInviteBanner(){
+  const el = $("inviteArea");
+  if(!el) return;
+  if(viewingUid !== currentUser.uid || !activeInvite){ el.innerHTML = ""; return; }
+  // 太舊的邀請就不顯示了（超過 1 天）
+  if(Date.now() - (activeInvite.at || 0) > 86400000){ el.innerHTML = ""; return; }
+
+  const isMine = activeInvite.from === currentUser.uid;
+  const scores = activeInvite.scores || {};
+  const played = !!scores[currentUser.uid];
+  const list = Object.entries(scores)
+    .sort((a,b)=> (b[1].score||0) - (a[1].score||0));
+
+  el.innerHTML = `
+    <div class="invite-card">
+      <div class="invite-top">
+        <span class="invite-icon">🎮</span>
+        <span class="invite-text">
+          ${isMine ? `你邀請大家玩<b>${esc(activeInvite.gameTitle)}</b>` 
+                   : `<b>${esc(activeInvite.fromName)}</b> 邀請你玩<b>${esc(activeInvite.gameTitle)}</b>`}
+          ${isMine ? "" : '<span class="free-tag">免費</span>'}
+        </span>
+      </div>
+      ${list.length ? `<div class="invite-scores">
+        ${list.map((e,i)=>`<div class="sc-row">
+          <span class="sc-rank">${i===0?"🏆":`${i+1}.`}</span>
+          <span class="sc-name">${esc(e[1].name||"某人")}</span>
+          <span class="sc-val">${e[1].score||0} 元</span>
+        </div>`).join("")}
+      </div>` : ""}
+      <div class="invite-btns">
+        ${played ? '<span class="invite-done">你玩過了 ✅</span>'
+                 : `<button class="invite-play" id="joinInvite">${isMine ? "🎮 開始玩" : "🎮 一起玩（免券）"}</button>`}
+        ${isMine ? '<button class="invite-end" id="endInvite">結束</button>' : ''}
+      </div>
+    </div>`;
+
+  const jb = $("joinInvite");
+  if(jb) jb.onclick = async () => {
+    goToPage("gamePage");
+    await startGame(activeInvite.gameId, true);   // 免券
+  };
+  const eb = $("endInvite");
+  if(eb) eb.onclick = async () => {
+    await updateDoc(doc(db,"spaces",currentSpaceId), { gameInvite: deleteField() }).catch(()=>{});
+    toast("結束這場了");
+  };
 }
 
 // ---------- 分頁切換 ----------
