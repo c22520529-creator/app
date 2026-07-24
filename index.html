@@ -2596,6 +2596,8 @@ $("mCreate").onclick = async () => {
       // 新增
       await addDoc(collection(db, "users", currentUser.uid, "items"), {
         text, type: activeList, done: false,
+        space: currentSpaceId,     // 這件事屬於哪一本
+
         goal: targetDays.length,   // 要做幾天（0 = 一次性）
         targetDays,                // 這個月要做的日子
         dueTime,                   // 幾點前要做完
@@ -2644,8 +2646,22 @@ function listenItems(){
   const who = viewingUid || currentUser.uid;
   const q = query(collection(db, "users", who, "items"), orderBy("createdAt", "desc"));
   unsubItems = onSnapshot(q, (snap) => {
-    allItems = [];
-    snap.forEach(d => allItems.push({ id:d.id, ...d.data() }));
+    const raw = [];
+    snap.forEach(d => raw.push({ id:d.id, ...d.data() }));
+
+    // 以前的資料沒有記本子 → 補到第一本去
+    if(who === currentUser.uid){
+      const homeBook = mySpaces[0] || currentSpaceId;
+      raw.forEach(it => {
+        if(!it.space && homeBook){
+          it.space = homeBook;
+          updateDoc(doc(db,"users",currentUser.uid,"items",it.id), { space: homeBook }).catch(()=>{});
+        }
+      });
+    }
+
+    // 只留這一本的
+    allItems = raw.filter(it => !currentSpaceId || it.space === currentSpaceId);
     // 第一次養倉鼠：把「現在的打卡數」記成起點，之前的就不算了
     if(!petStart && viewingUid === currentUser.uid){
       petStart = ymd(new Date());
