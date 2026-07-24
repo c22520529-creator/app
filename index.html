@@ -520,6 +520,26 @@
   .ask-btns .m-ok,.ask-btns .m-cancel{flex:none;width:100%;}
   .ask-btns .m-ok.invite{background:var(--wish);}
 
+  /* 我的本子 */
+  .book-list{display:flex;flex-direction:column;gap:9px;margin-bottom:14px;}
+  .book-item{
+    display:flex;align-items:center;gap:11px;width:100%;text-align:left;
+    background:var(--paper);border:2px solid var(--line);border-radius:14px;padding:12px;transition:.15s;
+  }
+  .book-item:active{transform:scale(.98);}
+  .book-item.now{border-color:var(--todo);background:var(--todo-soft);}
+  .book-item .bi{font-size:1.6rem;flex-shrink:0;}
+  .book-item .bmeta{flex:1;min-width:0;}
+  .book-item .bcode{font-family:"Baloo 2",sans-serif;font-weight:800;font-size:1rem;letter-spacing:.12em;}
+  .book-item .bwho{font-size:.74rem;color:var(--ink-soft);font-weight:700;margin-top:1px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .book-item .btag{font-size:.68rem;background:var(--todo);color:#fff;border-radius:99px;
+    padding:2px 8px;font-weight:800;flex-shrink:0;}
+  .book-add{display:flex;gap:8px;}
+  .book-add button{flex:1;padding:12px;border-radius:12px;font-weight:800;font-size:.85rem;
+    background:var(--paper);border:1.5px solid var(--line);color:var(--ink);}
+  .book-add button:active{transform:scale(.97);}
+
   /* 遊戲選單彈窗 */
   .menu-tickets{
     text-align:center;font-size:.85rem;color:var(--ink-soft);font-weight:700;margin-bottom:14px;
@@ -819,6 +839,11 @@
   <div class="modal" id="gameMenuBox"></div>
 </div>
 
+<!-- 我的本子 -->
+<div class="modal-overlay" id="booksModal">
+  <div class="modal" id="booksBox"></div>
+</div>
+
 <div id="toast"></div>
 
 <!-- 編輯個人資料彈窗 -->
@@ -875,6 +900,7 @@ const provider = new GoogleAuthProvider();
 
 let currentUser = null;
 let currentSpaceId = null;
+let mySpaces = [];          // 我加入的所有本子
 let unsubItems = null;
 let unsubSpace = null;
 let viewingUid = null;     // 現在正在看誰的書（預設看自己）
@@ -948,7 +974,9 @@ onAuthStateChanged(auth, async (user) => {
     myCoins = data.coins || 0;
     petSleeping = !!data.petSleeping;
     updateMyAvatar();
+    mySpaces = Array.isArray(data.spaces) ? data.spaces.slice() : [];
     const gid = data.spaceId || data.groupId;
+    if(gid && !mySpaces.includes(gid)) mySpaces.unshift(gid);
     if(gid){
       enterSpace(gid);
     }else{
@@ -992,7 +1020,9 @@ $("createBtn").onclick = async () => {
       }
     }
   });
-  await setDoc(doc(db, "users", currentUser.uid), { spaceId: code }, { merge: true });
+  if(!mySpaces.includes(code)) mySpaces.push(code);
+  await setDoc(doc(db, "users", currentUser.uid), { spaceId: code, spaces: mySpaces }, { merge: true });
+  $("createBtn").disabled = false;
   enterSpace(code);
 };
 
@@ -1016,7 +1046,9 @@ $("joinBtn").onclick = async () => {
       avatar: myProfile.avatar || ""
     }
   });
-  await setDoc(doc(db, "users", currentUser.uid), { spaceId: code }, { merge: true });
+  if(!mySpaces.includes(code)) mySpaces.push(code);
+  await setDoc(doc(db, "users", currentUser.uid), { spaceId: code, spaces: mySpaces }, { merge: true });
+  $("createBtn").disabled = false;
   enterSpace(code);
 };
 
@@ -1151,10 +1183,71 @@ $("copyCodeBtn").onclick = async () => {
   $("userMenu").classList.remove("show");
 };
 $("switchSpaceBtn").onclick = () => {
+  $("userMenu").classList.remove("show");
+  openBooks();
+};
+
+// ---------- 我的本子 ----------
+async function openBooks(){
+  const box = $("booksBox");
+  box.innerHTML = `<div class="modal-title">📔 我的本子</div>
+    <div class="book-list"><div class="empty-state" style="padding:20px;">載入中…</div></div>`;
+  $("booksModal").classList.add("show");
+
+  // 去看每一本裡面有誰
+  const infos = [];
+  for(const code of mySpaces){
+    try{
+      const snap = await getDoc(doc(db,"spaces",code));
+      const d = snap.exists() ? snap.data() : null;
+      const names = d ? Object.values(d.memberInfo||{}).map(m=>m.name||"成員") : [];
+      infos.push({ code, names, n: (d && d.members ? d.members.length : 0) });
+    }catch(e){ infos.push({ code, names:[], n:0 }); }
+  }
+
+  box.innerHTML = `<div class="modal-title">📔 我的本子</div>
+    <div class="book-list">
+      ${infos.map(b=>`
+        <button class="book-item ${b.code===currentSpaceId?"now":""}" data-c="${b.code}">
+          <span class="bi">${b.code===currentSpaceId?"📖":"📔"}</span>
+          <span class="bmeta">
+            <span class="bcode">${b.code}</span>
+            <span class="bwho">${b.n} 人${b.names.length?"："+b.names.join("、"):""}</span>
+          </span>
+          ${b.code===currentSpaceId?'<span class="btag">現在這本</span>':''}
+        </button>`).join("")}
+    </div>
+    <div class="book-add">
+      <button id="bNew">➕ 建立新本子</button>
+      <button id="bJoin">🔑 輸入代碼加入</button>
+    </div>
+    <div class="modal-btns"><button class="m-cancel" id="bClose">關閉</button></div>`;
+
+  box.querySelectorAll(".book-item").forEach(btn=>{
+    btn.onclick = async () => {
+      const code = btn.dataset.c;
+      if(code === currentSpaceId){ closeBooks(); return; }
+      closeBooks();
+      await setDoc(doc(db,"users",currentUser.uid), { spaceId: code }, { merge:true }).catch(()=>{});
+      enterSpace(code);
+      toast("換到這本了 📖");
+    };
+  });
+  $("bClose").onclick = closeBooks;
+  $("bNew").onclick = () => { closeBooks(); openSpaceView("create"); };
+  $("bJoin").onclick = () => { closeBooks(); openSpaceView("join"); };
+}
+function closeBooks(){ $("booksModal").classList.remove("show"); }
+$("booksModal").onclick = (e) => { if(e.target.id === "booksModal") closeBooks(); };
+
+// 打開建立/加入的畫面
+function openSpaceView(which){
   $("appView").classList.remove("show");
   $("spaceView").classList.add("show");
-  $("userMenu").classList.remove("show");
-};
+  $("joinCodeInput").value = ""; $("spaceErr").textContent = "";
+  if(which === "join") $("segJoin").click();
+  else $("segCreate").click();
+}
 
 // ---------- 編輯個人資料 ----------
 const ANIMAL_EMOJIS = ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐸","🐵","🐔","🐧","🐦","🦆","🦉","🐴","🦄","🐝","🦋","🐢","🐙","🦖","🐳","🐬","🦈","🐠","🦦"];
