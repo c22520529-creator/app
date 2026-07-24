@@ -533,6 +533,10 @@
   .book-item .bcode{font-family:"Baloo 2",sans-serif;font-weight:800;font-size:1rem;letter-spacing:.12em;}
   .book-item .bwho{font-size:.74rem;color:var(--ink-soft);font-weight:700;margin-top:1px;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .book-item .bleave{
+    font-size:1.1rem;flex-shrink:0;padding:4px 6px;border-radius:8px;opacity:.55;
+  }
+  .book-item .bleave:active{opacity:1;background:#f6dcd8;}
   .book-item .btag{font-size:.68rem;background:var(--todo);color:#fff;border-radius:99px;
     padding:2px 8px;font-weight:800;flex-shrink:0;}
   .book-add{display:flex;gap:8px;}
@@ -1215,6 +1219,7 @@ async function openBooks(){
             <span class="bwho">${b.n} 人${b.names.length?"："+b.names.join("、"):""}</span>
           </span>
           ${b.code===currentSpaceId?'<span class="btag">現在這本</span>':''}
+          <span class="bleave" data-leave="${b.code}">🚪</span>
         </button>`).join("")}
     </div>
     <div class="book-add">
@@ -1223,6 +1228,9 @@ async function openBooks(){
     </div>
     <div class="modal-btns"><button class="m-cancel" id="bClose">關閉</button></div>`;
 
+  box.querySelectorAll("[data-leave]").forEach(el=>{
+    el.onclick = (e) => { e.stopPropagation(); askLeaveBook(el.dataset.leave); };
+  });
   box.querySelectorAll(".book-item").forEach(btn=>{
     btn.onclick = async () => {
       const code = btn.dataset.c;
@@ -1238,6 +1246,63 @@ async function openBooks(){
   $("bJoin").onclick = () => { closeBooks(); openSpaceView("join"); };
 }
 function closeBooks(){ $("booksModal").classList.remove("show"); }
+
+// 問要不要離開這本
+function askLeaveBook(code){
+  const box = $("booksBox");
+  box.innerHTML = `
+    <div class="ask-icon">🚪</div>
+    <div class="ask-title">要離開這本嗎？</div>
+    <div class="ask-text">
+      本子代碼 <b>${esc(code)}</b><br>
+      離開之後你就看不到他們，<br>他們也看不到你了。<br>
+      <span style="color:var(--ink-soft);font-size:.8rem;">（本子還在，其他人可以繼續用）</span>
+    </div>
+    <div class="ask-btns">
+      <button class="m-ok" style="background:#c0574a;" id="leaveYes">🚪 離開</button>
+      <button class="m-cancel" id="leaveNo">← 不要，回去</button>
+    </div>`;
+  $("leaveNo").onclick = openBooks;
+  $("leaveYes").onclick = () => leaveBook(code);
+}
+
+// 真的離開
+async function leaveBook(code){
+  // 從我的清單移除
+  mySpaces = mySpaces.filter(c => c !== code);
+  // 從那本的成員名單移除我
+  try{
+    const snap = await getDoc(doc(db,"spaces",code));
+    if(snap.exists()){
+      const d = snap.data();
+      const left = (d.members||[]).filter(u => u !== currentUser.uid);
+      await updateDoc(doc(db,"spaces",code), {
+        members: left,
+        [`memberInfo.${currentUser.uid}`]: deleteField()
+      }).catch(()=>{});
+    }
+  }catch(e){}
+
+  const wasCurrent = (code === currentSpaceId);
+  const nextCode = mySpaces[0] || null;
+  await setDoc(doc(db,"users",currentUser.uid),
+    { spaces: mySpaces, spaceId: nextCode }, { merge:true }).catch(()=>{});
+
+  closeBooks();
+  toast("離開了 🚪");
+
+  if(!wasCurrent) return;              // 離開的不是現在這本 → 不用換
+  if(nextCode){ enterSpace(nextCode); }
+  else{
+    // 一本都不剩 → 回到建立/加入畫面
+    if(unsubItems) unsubItems();
+    if(unsubSpace) unsubSpace();
+    currentSpaceId = null;
+    $("appView").classList.remove("show");
+    $("spaceView").classList.add("show");
+    $("segCreate").click();
+  }
+}
 $("booksModal").onclick = (e) => { if(e.target.id === "booksModal") closeBooks(); };
 
 // 打開建立/加入的畫面
