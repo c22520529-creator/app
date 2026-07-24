@@ -678,6 +678,19 @@
     使用 Google 帳號登入
   </button>
   <div id="loginErr"></div>
+
+  <div class="or-line"><span>或者</span></div>
+
+  <div class="pw-box">
+    <div class="pw-seg">
+      <button class="pw-tab active" id="pwLoginTab">我有帳號了</button>
+      <button class="pw-tab" id="pwSignTab">第一次來</button>
+    </div>
+    <input type="text" id="pwName" class="pw-input" maxlength="10" placeholder="你的名字（最多 10 個字）">
+    <input type="password" id="pwPass" class="pw-input" placeholder="密碼（至少 6 個字）">
+    <button class="pw-go" id="pwGo">用名字和密碼進去</button>
+    <div class="pw-hint">不用 Google 帳號也可以用 🐹</div>
+  </div>
 </div>
 
 <!-- 邀請碼選擇畫面 -->
@@ -880,7 +893,8 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
+  createUserWithEmailAndPassword, signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc,
@@ -962,6 +976,63 @@ $("logoutBtn").onclick = async () => {
   await signOut(auth);
   location.reload();
 };
+
+
+// ---------- 名字 + 密碼登入 ----------
+let pwMode = "login";   // login 或 signup
+
+// 名字轉成電腦看得懂的信箱（中文也可以）
+function nameToEmail(name){
+  const bytes = new TextEncoder().encode(name.trim().toLowerCase());
+  let bin = "";
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  const b64 = btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+  return "u" + b64 + "@hamster.app";
+}
+
+$("pwLoginTab").onclick = () => setPwMode("login");
+$("pwSignTab").onclick  = () => setPwMode("signup");
+function setPwMode(m){
+  pwMode = m;
+  $("pwLoginTab").classList.toggle("active", m==="login");
+  $("pwSignTab").classList.toggle("active", m==="signup");
+  $("pwGo").textContent = m==="login" ? "用名字和密碼進去" : "建立我的帳號";
+  $("loginErr").textContent = "";
+}
+
+$("pwGo").onclick = async () => {
+  const name = $("pwName").value.trim();
+  const pass = $("pwPass").value;
+  const err = $("loginErr");
+  err.textContent = "";
+
+  if(name.length < 1){ err.textContent = "要先打名字喔"; return; }
+  if(name.length > 10){ err.textContent = "名字最多 10 個字"; return; }
+  if(pass.length < 6){ err.textContent = "密碼至少要 6 個字"; return; }
+
+  $("pwGo").disabled = true;
+  const email = nameToEmail(name);
+  try{
+    if(pwMode === "signup"){
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      // 把名字存起來
+      await setDoc(doc(db,"users",cred.user.uid), { name }, { merge:true }).catch(()=>{});
+    }else{
+      await signInWithEmailAndPassword(auth, email, pass);
+    }
+  }catch(e){
+    const c = e.code || "";
+    if(c.includes("email-already-in-use")) err.textContent = "這個名字已經有人用了，換一個或直接登入";
+    else if(c.includes("user-not-found")) err.textContent = "找不到這個名字，要先按「第一次來」建立帳號";
+    else if(c.includes("wrong-password") || c.includes("invalid-credential")) err.textContent = "名字或密碼不對喔";
+    else if(c.includes("weak-password")) err.textContent = "密碼至少要 6 個字";
+    else if(c.includes("operation-not-allowed")) err.textContent = "還沒在 Firebase 開啟這個功能";
+    else err.textContent = "登入失敗，再試一次";
+  }finally{
+    $("pwGo").disabled = false;
+  }
+};
+$("pwPass").onkeydown = e => { if(e.key === "Enter") $("pwGo").click(); };
 
 onAuthStateChanged(auth, async (user) => {
   if(user){
