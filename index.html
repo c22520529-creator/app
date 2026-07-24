@@ -1564,6 +1564,7 @@ const GAMES = [
   { id:"spot",  icon:"🔍", title:"找不同",     desc:"兩張圖有 3 個不一樣，找出來！" },
   { id:"flip",  icon:"🃏", title:"翻牌配對",   desc:"找出一樣的表情，全部配對成功就贏！" },
   { id:"rps",   icon:"✊", title:"猜拳大戰",   desc:"跟你的寵物猜拳，贏了有獎勵！" },
+  { id:"mono",  icon:"🎲", title:"倉鼠大富翁", desc:"2～4 人一起玩！買地、蓋房子、抽卡片" },
 ];
 
 function renderGames(){
@@ -1608,12 +1609,14 @@ function askPlay(id){
     <div class="ask-icon">${g.icon}</div>
     <div class="ask-title">${g.title}</div>
     <div class="ask-text">${enough
-      ? "要花 <b>🎟️ 1 張遊戲券</b> 玩這個遊戲嗎？"
+      ? (id==="mono"
+          ? "要花 <b>🎟️ 1 張遊戲券</b> 玩嗎？<br>大家圍在一起，輪流拿手機玩 🐹"
+          : "要花 <b>🎟️ 1 張遊戲券</b> 玩這個遊戲嗎？")
       : "你沒有遊戲券了 🥲<br>完成事情打卡就能拿到券喔！"}</div>
     <div class="ask-have">目前有 🎟️ ${myTickets} 張</div>
     <div class="ask-btns">
-      ${enough ? '<button class="m-ok" id="askGo">🎮 自己玩</button>' : ''}
-      ${enough ? '<button class="m-ok invite" id="askInvite">👥 邀請大家一起玩</button>' : ''}
+      ${enough ? `<button class="m-ok" id="askGo">${id==="mono" ? "🎲 開始玩" : "🎮 自己玩"}</button>` : ''}
+      ${enough && id!=="mono" ? '<button class="m-ok invite" id="askInvite">👥 邀請大家一起玩</button>' : ''}
       <button class="m-cancel" id="askBack">← 回去選</button>
     </div>`;
   $("askBack").onclick = openGameMenu;
@@ -1622,7 +1625,8 @@ function askPlay(id){
       closeGameMenu(); goToPage("gamePage");
       await startGame(id);
     };
-    $("askInvite").onclick = async () => {
+    const inv = $("askInvite");
+    if(inv) inv.onclick = async () => {
       closeGameMenu(); goToPage("gamePage");
       const ok = await useTicket();
       if(!ok) return;
@@ -1660,6 +1664,10 @@ async function startGame(id, freePlay){
   if(!freePlay){
     const ok = await useTicket();
     if(!ok) return;
+  }
+  if(id === "mono"){
+    location.href = "monopoly.html";
+    return;
   }
   if(id === "catch") playCatchGame();
   else if(id === "spot") playSpotGame();
