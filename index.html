@@ -467,6 +467,20 @@
   .tk-num.small{font-size:.9rem;letter-spacing:-.02em;}
   .coin-item img{width:26px;height:26px;object-fit:contain;}
 
+  /* 猜拳對戰 */
+  .duel-show{display:flex;align-items:center;justify-content:center;gap:16px;margin:16px 0;}
+  .duel-side{text-align:center;flex:1;}
+  .duel-hand{
+    font-size:3rem;min-height:1.3em;background:var(--paper);border-radius:16px;
+    padding:12px 4px;border:2px solid var(--line);
+  }
+  .duel-hand.empty{opacity:.35;}
+  .duel-hand.hidden{background:var(--todo-soft);border-color:var(--todo);}
+  .duel-who{font-size:.78rem;color:var(--ink-soft);font-weight:700;margin-top:5px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .duel-vs{font-weight:900;color:var(--ink-soft);flex-shrink:0;}
+  .duel-again{margin-top:12px;}
+
   /* 邀請一起玩 */
   #inviteArea:not(:empty){margin-bottom:12px;}
   .invite-card{
@@ -1614,7 +1628,14 @@ function askPlay(id){
       if(!ok) return;
       await sendInvite(id);
       toast("邀請發出去了！大家可以免費玩 🎮");
-      await startGame(id, true);   // 自己已經扣過券了
+      if(id === "rps"){
+        // 猜拳是真的對戰
+        window.__duelPaid = false;
+        await startDuel();
+        watchDuel();
+      }else{
+        await startGame(id, true);
+      }
     };
   }
 }
@@ -1825,6 +1846,113 @@ function playSpotGame(){
   $("closeGame").onclick = () => { running = false; clearInterval(tick); closeGame(); };
 }
 
+
+// ---------- 猜拳對戰（兩個人真的對打） ----------
+let duelUnsub = null;      // 盯著箱子的小狗
+let duelId = null;         // 這場對戰的編號
+let myThrow = null;        // 我出的拳
+
+// 開一場新對戰（發起的人）
+async function startDuel(){
+  duelId = "d" + Date.now();
+  myThrow = null;
+  await updateDoc(doc(db,"spaces",currentSpaceId), {
+    duel: {
+      id: duelId,
+      host: currentUser.uid,
+      hostName: myProfile.name || "我",
+      at: Date.now(),
+      throws: {},        // 箱子：誰出了什麼拳
+      done: false
+    }
+  }).catch(()=>{});
+}
+
+// 出拳（放進箱子蓋起來）
+async function throwHand(kind){
+  myThrow = kind;
+  await updateDoc(doc(db,"spaces",currentSpaceId), {
+    [`duel.throws.${currentUser.uid}`]: { name: myProfile.name || "我", hand: kind }
+  }).catch(()=>{});
+}
+
+// 裁判：比誰贏（在大家共用的地方判斷）
+function judgeDuel(a, b){
+  if(a === b) return "tie";
+  if((a==="rock"&&b==="scissor")||(a==="paper"&&b==="rock")||(a==="scissor"&&b==="paper")) return "a";
+  return "b";
+}
+
+
+// 小狗：一直盯著箱子，有動靜就馬上畫出來
+function watchDuel(){
+  if(duelUnsub) duelUnsub();
+  duelUnsub = onSnapshot(doc(db,"spaces",currentSpaceId), (snap) => {
+    if(!snap.exists()) return;
+    const d = snap.data().duel;
+    if(!d || d.id !== duelId){ return; }
+    renderDuel(d);
+  });
+}
+function stopWatchDuel(){ if(duelUnsub){ duelUnsub(); duelUnsub = null; } }
+
+// 畫出對戰畫面
+function renderDuel(d){
+  const el = $("gameArea");
+  if(!el) return;
+  const throws = d.throws || {};
+  const uids = Object.keys(throws);
+  const me = throws[currentUser.uid];
+  const otherUid = uids.find(u => u !== currentUser.uid);
+  const other = otherUid ? throws[otherUid] : null;
+  const bothIn = !!me && !!other;
+
+  // 兩邊都出拳了 → 裁判判斷
+  let resultHtml = "", resultCls = "";
+  if(bothIn){
+    const r = judgeDuel(me.hand, other.hand);
+    if(r === "tie"){ resultHtml = "平手！再來一次 🤝"; }
+    else if(r === "a"){ resultHtml = "你贏了！🎉 +25 元"; resultCls = "win"; }
+    else { resultHtml = `${esc(other.name)} 贏了 😢`; resultCls = "lose"; }
+    // 只發一次獎金
+    if(r === "a" && !window.__duelPaid){ window.__duelPaid = true; winCoins(25); }
+  }
+
+  const emo = k => (RPS.find(x=>x.k===k)||{}).e || "❓";
+
+  el.innerHTML = `
+    <div class="game-screen">
+      <div class="game-head">
+        <span class="gt">✊ 猜拳對戰</span>
+        <button class="game-close" id="closeGame">✕</button>
+      </div>
+      <div class="game-status">${bothIn ? "公布答案！" : (me ? "已經出拳了，等對方..." : "選一個出拳吧！")}</div>
+      <div class="duel-show">
+        <div class="duel-side">
+          <div class="duel-hand${me?"":" empty"}">${me ? emo(me.hand) : "❓"}</div>
+          <div class="duel-who">你</div>
+        </div>
+        <div class="duel-vs">VS</div>
+        <div class="duel-side">
+          <div class="duel-hand${other?(bothIn?"":" hidden"):" empty"}">${bothIn ? emo(other.hand) : (other ? "🔒" : "❓")}</div>
+          <div class="duel-who">${other ? esc(other.name) : "等對方..."}</div>
+        </div>
+      </div>
+      ${!me ? `<div class="rps-row">
+        ${RPS.map(r=>`<button class="rps-btn" data-k="${r.k}">${r.e}</button>`).join("")}
+      </div>` : ""}
+      <div class="game-result ${resultCls}">${resultHtml}</div>
+      ${bothIn ? '<div class="duel-again"><button class="pet-btn" id="againBtn">🔄 再玩一次</button></div>' : ''}
+    </div>`;
+
+  el.querySelectorAll(".rps-btn").forEach(b=>{
+    b.onclick = () => throwHand(b.dataset.k);
+  });
+  const ag = $("againBtn");
+  if(ag) ag.onclick = async () => { window.__duelPaid = false; await startDuel(); };
+  $("closeGame").onclick = () => { stopWatchDuel(); duelId = null; closeGame(); };
+}
+
 // ===== 遊戲：翻牌配對 =====
 function playFlipGame(){
   const el = $("gameArea");
@@ -2001,7 +2129,7 @@ function renderInviteBanner(){
 
   const isMine = activeInvite.from === currentUser.uid;
   const scores = activeInvite.scores || {};
-  const played = !!scores[currentUser.uid];
+  const played = activeInvite.gameId === "rps" ? false : !!scores[currentUser.uid];
   const list = Object.entries(scores)
     .sort((a,b)=> (b[1].score||0) - (a[1].score||0));
 
@@ -2032,6 +2160,18 @@ function renderInviteBanner(){
   const jb = $("joinInvite");
   if(jb) jb.onclick = async () => {
     goToPage("gamePage");
+    if(activeInvite.gameId === "rps"){
+      // 猜拳 → 加入對方那場對戰
+      const snap = await getDoc(doc(db,"spaces",currentSpaceId));
+      const d = snap.exists() ? snap.data().duel : null;
+      if(d){
+        duelId = d.id; myThrow = null; window.__duelPaid = false;
+        watchDuel(); renderDuel(d);
+      }else{
+        toast("對方還沒開始，等一下 🐹");
+      }
+      return;
+    }
     await startGame(activeInvite.gameId, true);   // 免券
   };
   const eb = $("endInvite");
