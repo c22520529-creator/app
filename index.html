@@ -1610,13 +1610,13 @@ function askPlay(id){
     <div class="ask-title">${g.title}</div>
     <div class="ask-text">${enough
       ? (id==="mono"
-          ? "要花 <b>🎟️ 1 張遊戲券</b> 玩嗎？<br>大家圍在一起，輪流拿手機玩 🐹"
+          ? "要花 <b>🎟️ 1 張遊戲券</b> 玩嗎？<br>可以一台手機輪流玩，<br>也可以各自用手機線上玩 🐹"
           : "要花 <b>🎟️ 1 張遊戲券</b> 玩這個遊戲嗎？")
       : "你沒有遊戲券了 🥲<br>完成事情打卡就能拿到券喔！"}</div>
     <div class="ask-have">目前有 🎟️ ${myTickets} 張</div>
     <div class="ask-btns">
       ${enough ? `<button class="m-ok" id="askGo">${id==="mono" ? "🎲 開始玩" : "🎮 自己玩"}</button>` : ''}
-      ${enough && id!=="mono" ? '<button class="m-ok invite" id="askInvite">👥 邀請大家一起玩</button>' : ''}
+      ${enough ? `<button class="m-ok invite" id="askInvite">${id==="mono" ? "🌐 線上一起玩" : "👥 邀請大家一起玩"}</button>` : ''}
       <button class="m-cancel" id="askBack">← 回去選</button>
     </div>`;
   $("askBack").onclick = openGameMenu;
@@ -1632,6 +1632,10 @@ function askPlay(id){
       if(!ok) return;
       await sendInvite(id);
       toast("邀請發出去了！大家可以免費玩 🎮");
+      if(id === "mono"){
+        location.href = "monopoly.html?online=1";
+        return;
+      }
       if(id === "rps"){
         // 猜拳是真的對戰
         window.__duelPaid = false;
@@ -2168,6 +2172,10 @@ function renderInviteBanner(){
   const jb = $("joinInvite");
   if(jb) jb.onclick = async () => {
     goToPage("gamePage");
+    if(activeInvite.gameId === "mono"){
+      location.href = "monopoly.html?online=1";
+      return;
+    }
     if(activeInvite.gameId === "rps"){
       // 猜拳 → 加入對方那場對戰
       const snap = await getDoc(doc(db,"spaces",currentSpaceId));
