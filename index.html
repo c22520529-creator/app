@@ -1794,9 +1794,9 @@ const GAMES = [
   { id:"flip",  icon:"🃏", title:"翻牌配對",   desc:"找出一樣的表情，全部配對成功就贏！" },
   { id:"rps",   icon:"✊", title:"猜拳大戰",   desc:"跟你的寵物猜拳，贏了有獎勵！" },
   { id:"mono",  icon:"🎲", title:"倉鼠大富翁", desc:"2～4 人一起玩！買地、蓋房子、抽卡片" },
-  { id:"grab",  icon:"⚡", title:"搶食物大戰", desc:"兩個人比反應，誰先點到誰得分！" },
-  { id:"bomb",  icon:"💣", title:"拆炸彈",     desc:"輪流拿瓜子，拿到最後一顆的人炸掉！" },
-  { id:"fish",  icon:"🎣", title:"釣魚比賽",   desc:"輪流釣魚，看誰釣到的分數高！" },
+  { id:"grab",  icon:"⚡", title:"搶食物大戰", desc:"比反應！誰先點到誰得分（可線上玩）" },
+  { id:"bomb",  icon:"💣", title:"拆炸彈",     desc:"輪流拿瓜子，拿到最後一顆的炸掉（可線上玩）" },
+  { id:"fish",  icon:"🎣", title:"釣魚比賽",   desc:"輪流釣魚，比誰分數高（可線上玩）" },
 ];
 
 function renderGames(){
@@ -1844,13 +1844,13 @@ function askPlay(id){
       ? (id==="mono"
           ? "要花 <b>🎟️ 1 張遊戲券</b> 玩嗎？<br>可以一台手機輪流玩，<br>也可以各自用手機線上玩 🐹"
           : (["grab","bomb","fish"].includes(id)
-              ? "要花 <b>🎟️ 1 張遊戲券</b> 玩嗎？<br>找一個人一起，兩個人玩同一支手機 🐹"
+              ? "要花 <b>🎟️ 1 張遊戲券</b> 玩嗎？<br>可以一支手機輪流，<br>也可以各自用手機線上玩 🐹"
               : "要花 <b>🎟️ 1 張遊戲券</b> 玩這個遊戲嗎？"))
       : "你沒有遊戲券了 🥲<br>完成事情打卡就能拿到券喔！"}</div>
     <div class="ask-have">目前有 🎟️ ${myTickets} 張</div>
     <div class="ask-btns">
       ${enough ? `<button class="m-ok" id="askGo">${["mono","grab","bomb","fish"].includes(id) ? "🎮 開始玩" : "🎮 自己玩"}</button>` : ''}
-      ${enough && !["grab","bomb","fish"].includes(id) ? `<button class="m-ok invite" id="askInvite">${id==="mono" ? "🌐 線上一起玩" : "👥 邀請大家一起玩"}</button>` : ''}
+      ${enough ? `<button class="m-ok invite" id="askInvite">${["mono","grab","bomb","fish"].includes(id) ? "🌐 線上一起玩" : "👥 邀請大家一起玩"}</button>` : ''}
       <button class="m-cancel" id="askBack">← 回去選</button>
     </div>`;
   $("askBack").onclick = openGameMenu;
@@ -1866,8 +1866,9 @@ function askPlay(id){
       if(!ok) return;
       await sendInvite(id);
       toast("邀請發出去了！大家可以免費玩 🎮");
-      if(id === "mono"){
-        location.href = "monopoly.html?online=1";
+      const ONLINE_PAGES = { mono:"monopoly.html", grab:"grab.html", bomb:"bomb.html", fish:"fish.html" };
+      if(ONLINE_PAGES[id]){
+        location.href = ONLINE_PAGES[id] + "?online=1";
         return;
       }
       if(id === "rps"){
@@ -2407,8 +2408,9 @@ function renderInviteBanner(){
   const jb = $("joinInvite");
   if(jb) jb.onclick = async () => {
     goToPage("gamePage");
-    if(activeInvite.gameId === "mono"){
-      location.href = "monopoly.html?online=1";
+    const OP = { mono:"monopoly.html", grab:"grab.html", bomb:"bomb.html", fish:"fish.html" };
+    if(OP[activeInvite.gameId]){
+      location.href = OP[activeInvite.gameId] + "?online=1";
       return;
     }
     if(activeInvite.gameId === "rps"){
