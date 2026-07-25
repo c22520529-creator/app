@@ -91,6 +91,15 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .wait-turn{background:#fceedb;border:1.5px solid var(--todo);border-radius:12px;
   padding:11px;font-size:.85rem;font-weight:800;text-align:center;margin-top:10px;}
 
+.end-overlay{position:fixed;inset:0;background:rgba(107,74,50,.6);display:none;align-items:center;justify-content:center;z-index:100;}
+.end-overlay.show{display:flex;}
+.end-overlay .box{background:var(--card);border-radius:22px;padding:30px 24px;text-align:center;max-width:300px;}
+.end-overlay .emoji{font-size:2.4rem;margin-bottom:12px;}
+.end-overlay .t{font-size:1.2rem;font-weight:900;color:var(--ink);margin-bottom:8px;}
+.end-overlay button{width:100%;background:var(--todo);color:#fff;padding:12px;border-radius:12px;font-weight:800;font-size:.95rem;margin-top:8px;cursor:pointer;}
+
+.end-btn{position:absolute;top:12px;right:12px;background:var(--red);color:#fff;padding:6px 12px;border-radius:8px;font-size:.8rem;font-weight:800;z-index:50;}
+
 </style>
 </head>
 <body>
@@ -143,7 +152,8 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     </div>
 
     <!-- 線上 -->
-    <div class="onlineBoard" id="onlineBoard">
+    <div class="onlineBoard" id="onlineBoard" style="position:relative;">
+      <button class="end-btn" id="endGameBtn" style="display:none;">結束遊戲</button>
       <div class="oScores">
         <div class="oP mine"><div class="n" id="oMe">你</div><div class="s" id="oScMe">0</div></div>
         <div class="oP"><div class="n" id="oYou">對手</div><div class="s" id="oScYou">0</div></div>
@@ -163,6 +173,15 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     <div class="s" id="overS"></div>
     <button class="again" id="againBtn">🔄 再玩一次</button>
     <button class="home" id="homeBtn">← 回 APP</button>
+  </div>
+</div>
+
+<div class="end-overlay" id="endOverlay">
+  <div class="box">
+    <div class="emoji">👋</div>
+    <div class="t">主持人結束遊戲囉～</div>
+    <div class="t" style="font-size:.95rem;color:var(--ink-soft);font-weight:700;margin-top:8px;">我們下次再玩！</div>
+    <button id="endConfirmBtn">確認</button>
   </div>
 </div>
 
@@ -354,6 +373,12 @@ function renderRoom(r){
   $("oScMe").textContent = i>=0 ? sc[i] : 0;
   $("oScYou").textContent = i>=0 ? sc[1-i] : 0;
 
+  // 只有主持人看得到「結束遊戲」按鈕
+  $("endGameBtn").style.display = (r.host===me) ? "block" : "none";
+
+  // 檢查主持人是否已結束遊戲
+  if(r.gameEnded){ showEndOverlay(); return; }
+
   if(r.status==="ended"){ finish(r); return; }
 
   // 換回合了 → 重置
@@ -462,6 +487,20 @@ $("againBtn").onclick = async () => {
   else { sc=[0,0]; updateScore(); localRound(); }
 };
 
+
+// ========== 結束遊戲功能 ==========
+function showEndOverlay(){
+  $("oZone").style.filter = "blur(2px)";
+  $("oZone").style.pointerEvents = "none";
+  $("endOverlay").classList.add("show");
+}
+$("endGameBtn").onclick = async () => {
+  await push({ gameEnded:true });
+  showEndOverlay();
+};
+$("endConfirmBtn").onclick = () => {
+  location.href = "index.html";
+};
 </script>
 </body>
 </html>
