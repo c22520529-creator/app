@@ -1127,12 +1127,24 @@ $("joinBtn").onclick = async () => {
   enterSpace(code);
 };
 
-function enterSpace(spaceId){
+async function enterSpace(spaceId){
   currentSpaceId = spaceId;
   $("loginView").style.display = "none";
   $("spaceView").classList.remove("show");
   $("appView").classList.add("show");
   $("menuCode").textContent = spaceId;
+
+  // 讀取「這一本」自己的名字頭像（每本本子可以有不一樣的人設）
+  try{
+    const snap = await getDoc(doc(db, "spaces", spaceId));
+    const info = snap.exists() ? (snap.data().memberInfo || {})[currentUser.uid] : null;
+    if(info){
+      myProfile.name = info.name || myProfile.name;
+      myProfile.avatar = info.avatar || myProfile.avatar;
+    }
+  }catch(e){}
+  updateMyAvatar();
+
   viewingUid = currentUser.uid;
   viewingName = myProfile.name || "我";
   switchList("todo");
@@ -1166,13 +1178,6 @@ function updateMyAvatar(){
 // 監聽本子（成員變動時即時更新）
 function listenSpace(){
   if(unsubSpace) unsubSpace();
-  // 補存自己的名字頭像
-  updateDoc(doc(db, "spaces", currentSpaceId), {
-    [`memberInfo.${currentUser.uid}`]: {
-      name: myProfile.name || "我",
-      avatar: myProfile.avatar || ""
-    }
-  }).catch(()=>{});
   unsubSpace = onSnapshot(doc(db, "spaces", currentSpaceId), (snap) => {
     if(!snap.exists()) return;
     spaceMembers = snap.data().memberInfo || {};
