@@ -73,6 +73,15 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .wait-turn{background:#fceedb;border:1.5px solid var(--todo);border-radius:12px;
   padding:11px;font-size:.85rem;font-weight:800;text-align:center;margin-top:10px;}
 
+.end-overlay{position:fixed;inset:0;background:rgba(107,74,50,.6);display:none;align-items:center;justify-content:center;z-index:100;}
+.end-overlay.show{display:flex;}
+.end-overlay .box{background:var(--card);border-radius:22px;padding:30px 24px;text-align:center;max-width:300px;}
+.end-overlay .emoji{font-size:2.4rem;margin-bottom:12px;}
+.end-overlay .t{font-size:1.2rem;font-weight:900;color:var(--ink);margin-bottom:8px;}
+.end-overlay button{width:100%;background:var(--todo);color:#fff;padding:12px;border-radius:12px;font-weight:800;font-size:.95rem;margin-top:8px;cursor:pointer;}
+
+.end-btn{position:absolute;top:12px;right:12px;background:var(--red);color:#fff;padding:6px 12px;border-radius:8px;font-size:.8rem;font-weight:800;z-index:50;}
+
 </style>
 </head>
 <body>
@@ -133,6 +142,17 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     <button class="again" id="againBtn">🔄 再玩一次</button>
     <button class="home" id="homeBtn">← 回 APP</button>
   </div>
+
+
+<div class="end-overlay" id="endOverlay">
+  <div class="box">
+    <div class="emoji">👋</div>
+    <div class="t">主持人結束遊戲囉～</div>
+    <div class="t" style="font-size:.95rem;color:var(--ink-soft);font-weight:700;margin-top:8px;">我們下次再玩！</div>
+    <button id="endConfirmBtn">確認</button>
+  </div>
+</div>
+
 </div>
 
 
@@ -348,6 +368,27 @@ $("againBtn").onclick = async () => {
   else { left=START; turn=0; busy=false; drawSeeds(); updateUI(); }
 };
 
+
+// ========== 結束遊戲功能 ==========
+function showEndOverlay(){
+  if($("oBig")) $("oBig").style.filter = "blur(2px)";
+  if($("oZone")) $("oZone").style.pointerEvents = "none";
+  if($("oZone")) $("oZone").style.filter = "blur(2px)";
+  $("endOverlay").classList.add("show");
+}
+if($("endGameBtn")){
+  $("endGameBtn").onclick = async () => {
+    if(mode==="online" && spaceId && R){
+      await push({ gameEnded:true });
+      showEndOverlay();
+    }
+  };
+}
+if($("endConfirmBtn")){
+  $("endConfirmBtn").onclick = () => {
+    location.href = "index.html";
+  };
+}
 </script>
 </body>
 </html>
