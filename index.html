@@ -3109,14 +3109,38 @@ function renderDayDetail(key){
 
 
 
+
 // ---------- 訊息功能 ----------
-let conversations = {};  // { uid: {uid, name, userId, avatar, lastMsg, lastTime, messages: [{from, fromName, type, content, time}]} }
+let conversations = {};  // { uid: {uid, name, userId, avatar, lastMsg, lastTime} }
 let conversationOrder = [];  // 按時間排序的對話列表
 let currentChatUid = null;  // 當前打開的對話 uid
+let currentChatUnsubscribe = null;  // Firebase 監聽器
 let mediaRecorder = null;  // 錄音物件
 let recordingStartTime = null;  // 開始錄音時間
 let recordingInterval = null;  // 計時器
 let recordedBlob = null;  // 錄製的音檔
+
+// 生成對話 ID（確保順序一致）
+function getConversationId(uid1, uid2){
+  return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
+}
+
+// 頁面載入時從 Firebase 讀取對話列表
+async function loadConversations(){
+  if(!currentUser) return;
+  try{
+    const snap = await getDocs(collection(db, `conversations/${currentUser.uid}`));
+    conversations = {};
+    snap.forEach(doc => {
+      const data = doc.data();
+      conversations[doc.id] = data;
+    });
+    updateConversationOrder();
+    renderConversationList();
+  }catch(e){
+    console.error("載入對話失敗", e);
+  }
+}
 
 // 搜尋用戶
 $("userSearchInput").oninput = async (e) => {
@@ -3161,7 +3185,7 @@ $("userSearchInput").oninput = async (e) => {
     
     const btn = document.createElement("button");
     btn.textContent = "開始聊天";
-    btn.style.cssText = "background:var(--ink);color:#fff;padding:8px 16px;border-radius:8px;font-weight:700;font-size:.9rem;";
+    btn.style.cssText = "background:var(--ink);color:#fff;padding:8px 16px;border-radius:8px;font-weight:700;font-size:.9rem;border:none;cursor:pointer;";
     
     div.appendChild(info);
     div.appendChild(btn);
@@ -3173,6 +3197,7 @@ $("userSearchInput").oninput = async (e) => {
 
 // 開始聊天
 async function startChat(uid, name, userId, avatar){
+  // 加入對話列表
   if(!conversations[uid]){
     conversations[uid] = {
       uid: uid,
@@ -3180,23 +3205,36 @@ async function startChat(uid, name, userId, avatar){
       userId: userId,
       avatar: avatar,
       lastMsg: "",
-      lastTime: 0,
-      messages: []
+      lastTime: 0
     };
-    // 從 Firebase 載入訊息
-    loadMessagesFromFirebase(uid);
+    // 同時存到 Firebase（雙方都存）
+    await setDoc(doc(db, `conversations/${currentUser.uid}/${uid}`), conversations[uid], {merge: true});
+    
+    // 對方的對話列表也加上我們
+    await setDoc(doc(db, `conversations/${uid}/${currentUser.uid}`), {
+      uid: currentUser.uid,
+      name: myProfile.name,
+      userId: myProfile.userId,
+      avatar: myProfile.avatar,
+      lastMsg: "",
+      lastTime: 0
+    }, {merge: true});
   }
-  // 進入聊天窗口
-  currentChatUid = uid;
-  openChatWindow(uid);
+  
   updateConversationOrder();
   $("userSearchInput").value = "";
   $("searchResults").style.display = "none";
+  renderConversationList();
+  
+  // 進入聊天窗口
+  openChatWindow(uid);
 }
 
 // 進入聊天窗口
-function openChatWindow(uid){
+async function openChatWindow(uid){
   const conv = conversations[uid];
+  currentChatUid = uid;
+  
   $("msgListView").style.display = "none";
   $("msgChatView").style.display = "flex";
   
@@ -3205,33 +3243,45 @@ function openChatWindow(uid){
   $("msgHeaderName").textContent = esc(conv.name);
   $("msgHeaderId").textContent = esc(conv.userId);
   
-  // 顯示訊息
-  renderMessages();
+  // 監聽訊息
+  listenToMessages(uid);
   
   // 聚焦輸入框
   $("msgInput").focus();
 }
 
-// 從 Firebase 載入訊息
-async function loadMessagesFromFirebase(uid){
-  try{
-    const msgPath = `conversations/${currentUser.uid}_${uid}/messages`;
-    const qry = query(collection(db, msgPath), orderBy("time", "desc"));
-    const snap = await getDocs(qry);
+// 監聽訊息（實時更新）
+function listenToMessages(uid){
+  // 關掉舊的監聽
+  if(currentChatUnsubscribe) currentChatUnsubscribe();
+  
+  const convId = getConversationId(currentUser.uid, uid);
+  const msgPath = `messages/${convId}`;
+  
+  const qry = query(collection(db, msgPath), orderBy("time", "desc"));
+  currentChatUnsubscribe = onSnapshot(qry, (snap) => {
     const messages = [];
     snap.forEach(doc => {
       messages.push(doc.data());
     });
-    if(conversations[uid]) conversations[uid].messages = messages;
-  }catch(e){
-    console.log("載入訊息失敗", e);
-  }
+    
+    // 更新本地對話
+    if(conversations[uid]){
+      conversations[uid].messages = messages;
+    }
+    
+    renderMessages();
+  }, (err) => {
+    console.error("監聽訊息失敗", err);
+  });
 }
 
 // 顯示訊息
 function renderMessages(){
   if(!currentChatUid) return;
   const conv = conversations[currentChatUid];
+  if(!conv || !conv.messages) return;
+  
   const container = $("msgContainer");
   container.innerHTML = "";
   
@@ -3267,7 +3317,7 @@ function renderMessages(){
     const time = msg.time ? new Date(msg.time.toDate ? msg.time.toDate() : msg.time).toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'}) : "";
     
     bubble.innerHTML = `
-      <div style="${isOwn ? '' : 'font-weight:700;font-size:.9rem;margin-bottom:4px;'}${isOwn ? 'font-size:.85rem;opacity:.8;' : ''}">${isOwn ? '' : esc(msg.fromName)}</div>
+      <div style="${isOwn ? 'font-size:.85rem;opacity:.8;' : 'font-weight:700;font-size:.9rem;margin-bottom:4px;'}">${isOwn ? '' : esc(msg.fromName)}</div>
       <div>${content}</div>
       <div style="font-size:.8rem;opacity:.7;margin-top:4px;">${time}</div>
     `;
@@ -3312,9 +3362,7 @@ function renderConversationList(){
     div.onmouseup = () => {
       if(Date.now() - touchStartTime > 500){
         if(confirm(`確定要刪除跟 ${conv.name} 的對話嗎？`)){
-          delete conversations[uid];
-          updateConversationOrder();
-          renderConversationList();
+          deleteConversation(uid);
         }
       }
     };
@@ -3328,7 +3376,7 @@ function renderConversationList(){
     info.innerHTML = `
       <div style="font-weight:700;margin-bottom:4px;">${esc(conv.name)}</div>
       <div style="font-size:.85rem;color:var(--ink-soft);margin-bottom:4px;">${esc(conv.userId)}</div>
-      <div style="font-size:.9rem;color:var(--ink);opacity:.7;">${esc(conv.lastMsg.slice(0, 30))}</div>
+      <div style="font-size:.9rem;color:var(--ink);opacity:.7;">${esc((conv.lastMsg || "").slice(0, 30))}</div>
     `;
     
     div.appendChild(avatar);
@@ -3337,12 +3385,30 @@ function renderConversationList(){
   });
 }
 
+// 刪除對話
+async function deleteConversation(uid){
+  try{
+    await deleteDoc(doc(db, `conversations/${currentUser.uid}/${uid}`));
+    delete conversations[uid];
+    updateConversationOrder();
+    renderConversationList();
+    
+    if(currentChatUid === uid){
+      currentChatUid = null;
+      $("msgListView").style.display = "block";
+      $("msgChatView").style.display = "none";
+    }
+  }catch(e){
+    console.error("刪除對話失敗", e);
+  }
+}
+
 // 返回對話列表
 $("msgBackBtn").onclick = () => {
+  if(currentChatUnsubscribe) currentChatUnsubscribe();
   currentChatUid = null;
   $("msgListView").style.display = "block";
   $("msgChatView").style.display = "none";
-  renderConversationList();
 };
 
 // 刪除聊天室
@@ -3350,12 +3416,7 @@ $("msgDeleteBtn").onclick = () => {
   if(!currentChatUid) return;
   const conv = conversations[currentChatUid];
   if(confirm(`確定要刪除跟 ${conv.name} 的對話嗎？`)){
-    delete conversations[currentChatUid];
-    updateConversationOrder();
-    currentChatUid = null;
-    $("msgListView").style.display = "block";
-    $("msgChatView").style.display = "none";
-    renderConversationList();
+    deleteConversation(currentChatUid);
   }
 };
 
@@ -3378,18 +3439,36 @@ async function sendMessage(type, content){
     time: now
   };
   
-  // 加到本地
-  conv.messages.unshift(msg);
-  conv.lastMsg = type === "text" ? content : `[${type}]`;
-  conv.lastTime = Date.now();
-  
-  // 存到 Firebase
-  const msgPath = `conversations/${currentUser.uid}_${currentChatUid}`;
-  await addDoc(collection(db, msgPath, "messages"), msg).catch(e => console.error(e));
-  
-  renderMessages();
-  updateConversationOrder();
-  renderConversationList();
+  try{
+    // 存訊息到 Firebase
+    const convId = getConversationId(currentUser.uid, currentChatUid);
+    const msgPath = `messages/${convId}`;
+    await addDoc(collection(db, msgPath), msg);
+    
+    // 更新雙方的對話列表
+    const lastMsgText = type === "text" ? content : `[${type}]`;
+    const now2 = Date.now();
+    
+    await setDoc(doc(db, `conversations/${currentUser.uid}/${currentChatUid}`), {
+      lastMsg: lastMsgText,
+      lastTime: now2
+    }, {merge: true});
+    
+    await setDoc(doc(db, `conversations/${currentChatUid}/${currentUser.uid}`), {
+      lastMsg: lastMsgText,
+      lastTime: now2
+    }, {merge: true});
+    
+    // 更新本地
+    if(conversations[currentChatUid]){
+      conversations[currentChatUid].lastMsg = lastMsgText;
+      conversations[currentChatUid].lastTime = now2;
+    }
+    updateConversationOrder();
+    renderConversationList();
+  }catch(e){
+    console.error("發送訊息失敗", e);
+  }
 }
 
 // 上傳圖片
@@ -3493,10 +3572,13 @@ $("msgVoiceDeleteBtn").onclick = () => {
   $("msgVoiceReviewPanel").style.display = "none";
 };
 
-// 頁面載入時初始化
-renderConversationList();
-
-
+// 監聽用戶登入，頁面載入時初始化對話列表
+onAuthStateChanged(auth, (user) => {
+  if(user && currentUser){
+    loadConversations();
+  }
+});
+-e 
 </script>
 </body>
 </html>
