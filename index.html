@@ -3186,11 +3186,13 @@ async function loadMsgHistory(uid){
     
     history.innerHTML = '';
     msgArray.forEach(msg => {
+      if(!msg || !msg.text) return;
       const isMe = msg.from === currentUser.uid;
+      const textContent = String(msg.text).replace(/</g, '&lt;').replace(/>/g, '&gt;');
       history.innerHTML += `
         <div class="msg-${isMe ? 'mine' : 'other'}">
-          <div class="msg-bubble">${msg.text}</div>
-          <div class="msg-time">${new Date(msg.time).toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'})}</div>
+          <div class="msg-bubble">${textContent}</div>
+          <div class="msg-time">${new Date(msg.time || 0).toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'})}</div>
         </div>
       `;
     });
