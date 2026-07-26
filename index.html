@@ -747,6 +747,7 @@
     <button class="tab" data-page="calPage">📅 日曆</button>
     <button class="tab" data-page="peoplePage">👀 大家</button>
     <button class="tab" data-page="gamePage">🎮 遊戲</button>
+    <button class="tab" data-page="msgPage">💬 訊息</button>
 
   </div>
 
@@ -785,6 +786,27 @@
   <!-- 第三頁：大家 -->
   <div class="page" id="peoplePage">
     <div class="members-bar" id="membersBar"></div>
+  </div>
+
+  <!-- 第五頁：訊息 -->
+  <div class="page" id="msgPage">
+    <div style="padding:16px;overflow-y:auto;flex:1;">
+      <!-- 搜索框 -->
+      <div style="margin-bottom:16px;">
+        <input type="text" id="userSearchInput" class="m-input" placeholder="搜尋用戶名稱..." style="width:100%;padding:12px;border-radius:12px;border:1.5px solid var(--line);">
+      </div>
+      <!-- 搜索結果（剛搜尋時顯示） -->
+      <div id="searchResults" style="display:none;margin-bottom:16px;">
+        <div style="font-size:.95rem;color:var(--ink-soft);margin-bottom:8px;">搜尋結果：</div>
+        <div id="searchResultsList" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+      <!-- 對話列表 -->
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:.95rem;color:var(--ink-soft);margin-bottom:4px;">對話列表：</div>
+        <div id="conversationList" style="display:flex;flex-direction:column;gap:8px;"></div>
+        <div id="noConversation" style="text-align:center;color:var(--ink-soft);padding:24px 0;">還沒有對話</div>
+      </div>
+    </div>
   </div>
 
   <!-- 第四頁：遊戲（我的寵物） -->
@@ -883,6 +905,9 @@
       <div id="avatarPreview" class="avatar-preview"></div>
     </div>
 
+    <div class="m-label">用戶 ID（最多 20 字，數字英文下底線）</div>
+    <input type="text" id="pUserId" class="m-input" maxlength="20" placeholder="user_xxxxx">
+
     <div class="m-label">名字（最多 20 字）</div>
     <input type="text" id="pName" class="m-input" maxlength="20" placeholder="輸入名字...">
 
@@ -909,7 +934,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc,
-  collection, query, orderBy, onSnapshot, serverTimestamp, addDoc, deleteField
+  collection, query, orderBy, onSnapshot, serverTimestamp, addDoc, deleteField, getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ⭐ 請把你的 Firebase 設定貼在這裡 ⭐
@@ -937,7 +962,7 @@ let viewingName = "";      // 正在看的人的名字
 let spaceMembers = {};     // 這個群組的成員資料 { uid: {name, avatar} }
 let activeInvite = null;   // 目前的遊戲邀請
 let playingInvited = false; // 這局是被邀請來的（免券）
-let myProfile = { name: "", avatar: "" };  // 我的名字跟頭像（頭像可以是 emoji 或照片）
+let myProfile = { name: "", avatar: "", userId: "" };  // 我的名字、頭像、用戶ID
 let petStart = null;                       // 開始養寵物的日期（那天之後的打卡才算）
 let myPetType = null;                      // 養哪一隻：ham / cat
 let petHatched = false;                    // 孵化了沒
@@ -1053,6 +1078,13 @@ onAuthStateChanged(auth, async (user) => {
     // 載入我的名字頭像（沒設定過就用 Google 的）
     myProfile.name = data.name || user.displayName || "我";
     myProfile.avatar = data.avatar || user.photoURL || "";
+    // 載入用戶ID（沒設定過就自動生成 user_xxxxx）
+    if(data.userId){
+      myProfile.userId = data.userId;
+    }else{
+      myProfile.userId = "user_" + Math.random().toString(36).substr(2, 8).toUpperCase();
+      await setDoc(doc(db, "users", user.uid), { userId: myProfile.userId }, { merge: true }).catch(()=>{});
+    }
     petStart = data.petStart || null;
     myPetType = data.petType || null;
     petHatched = !!data.petHatched;
@@ -1434,6 +1466,7 @@ function setPickedAvatar(av){
 
 $("editProfileBtn").onclick = () => {
   $("userMenu").classList.remove("show");
+  $("pUserId").value = myProfile.userId || "";
   $("pName").value = myProfile.name || "";
   setPickedAvatar(myProfile.avatar || "🐹");
   $("profileModal").classList.add("show");
@@ -1472,12 +1505,15 @@ $("fileInput").onchange = (e) => {
 
 $("pSave").onclick = async () => {
   const name = $("pName").value.trim().slice(0, 20) || "我";
+  const userId = $("pUserId").value.trim().slice(0, 20).replace(/[^a-zA-Z0-9_]/g, "") || myProfile.userId;
   myProfile.name = name;
+  myProfile.userId = userId;
   myProfile.avatar = pickedAvatar || "";
   updateMyAvatar();
   // 存到我的資料
   await setDoc(doc(db, "users", currentUser.uid), {
     name: myProfile.name,
+    userId: myProfile.userId,
     avatar: myProfile.avatar
   }, { merge: true });
   // 同步到群組（讓大家看到新的名字頭像）
@@ -3017,33 +3053,132 @@ function renderDayDetail(key){
 
 
 
-// 按鈕事件
-document.addEventListener('DOMContentLoaded', () => {
-  const backBtn = document.getElementById('msgBack');
-  const sendBtn = document.getElementById('msgSend');
-  const input = document.getElementById('msgText');
+// ---------- 訊息功能 ----------
+let conversations = {};  // { userId: {name, avatar, userId, lastMsg, lastTime, messages: [{from, text, time}]} }
+let conversationOrder = [];  // 按時間排序的對話列表
 
-  if(backBtn){
-    backBtn.onclick = () => {
-      const msgList = document.getElementById('msgList');
-      const msgChat = document.getElementById('msgChat');
-      if(msgList) msgList.style.display = 'block';
-      if(msgChat) msgChat.classList.remove('show');
-      msgWith = null;
-      loadMsgList();
+// 搜尋用戶
+$("userSearchInput").oninput = async (e) => {
+  const query = e.target.value.trim().toLowerCase();
+  if(!query){
+    $("searchResults").style.display = "none";
+    return;
+  }
+  
+  // 在 users 集合裡搜尋
+  const usersSnap = await getDocs(collection(db, "users"));
+  const results = [];
+  usersSnap.forEach(doc => {
+    const data = doc.data();
+    if(doc.id === currentUser.uid) return;  // 不搜尋自己
+    const userId = data.userId || "";
+    const name = data.name || "";
+    const avatar = data.avatar || "";
+    
+    // 搜尋 userId 或名字
+    if(userId.toLowerCase().includes(query) || name.toLowerCase().includes(query)){
+      results.push({
+        uid: doc.id,
+        userId: userId,
+        name: name,
+        avatar: avatar
+      });
+    }
+  });
+  
+  // 顯示搜尋結果
+  const resultsList = $("searchResultsList");
+  resultsList.innerHTML = "";
+  results.forEach(user => {
+    const div = document.createElement("div");
+    div.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--todo-soft);border-radius:12px;cursor:pointer;";
+    div.onclick = () => startChat(user.uid, user.name, user.userId, user.avatar);
+    
+    const info = document.createElement("div");
+    info.style.cssText = "flex:1;";
+    info.innerHTML = `<div style="font-weight:700;">${esc(user.name)}</div><div style="font-size:.85rem;color:var(--ink-soft);">${esc(user.userId)}</div>`;
+    
+    const btn = document.createElement("button");
+    btn.textContent = "開始聊天";
+    btn.style.cssText = "background:var(--ink);color:#fff;padding:8px 16px;border-radius:8px;font-weight:700;font-size:.9rem;";
+    
+    div.appendChild(info);
+    div.appendChild(btn);
+    resultsList.appendChild(div);
+  });
+  
+  $("searchResults").style.display = results.length > 0 ? "block" : "none";
+};
+
+// 開始聊天
+async function startChat(uid, name, userId, avatar){
+  if(!conversations[uid]){
+    conversations[uid] = {
+      uid: uid,
+      name: name,
+      userId: userId,
+      avatar: avatar,
+      lastMsg: "",
+      lastTime: 0,
+      messages: []
     };
   }
+  updateConversationOrder();
+  $("userSearchInput").value = "";
+  $("searchResults").style.display = "none";
+  renderConversationList();
+}
 
-  if(sendBtn){
-    sendBtn.onclick = sendMsg;
+// 更新對話時間排序
+function updateConversationOrder(){
+  conversationOrder = Object.keys(conversations).sort((a, b) => {
+    return (conversations[b].lastTime || 0) - (conversations[a].lastTime || 0);
+  });
+}
+
+// 顯示對話列表
+function renderConversationList(){
+  const list = $("conversationList");
+  const noCon = $("noConversation");
+  
+  if(conversationOrder.length === 0){
+    noCon.style.display = "block";
+    list.innerHTML = "";
+    return;
   }
-
-  if(input){
-    input.onkeypress = (e) => {
-      if(e.key === 'Enter') sendMsg();
+  
+  noCon.style.display = "none";
+  list.innerHTML = "";
+  
+  conversationOrder.forEach(uid => {
+    const conv = conversations[uid];
+    const div = document.createElement("div");
+    div.style.cssText = "display:flex;align-items:center;padding:12px;background:var(--card);border:1.5px solid var(--line);border-radius:12px;cursor:pointer;gap:12px;";
+    div.onclick = () => {
+      // TODO: 打開聊天窗口
+      alert(`打開跟 ${conv.name} 的對話`);
     };
-  }
-});
+    
+    const avatar = document.createElement("div");
+    avatar.style.cssText = "width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2rem;background:var(--todo-soft);flex-shrink:0;";
+    avatar.textContent = conv.avatar || "👤";
+    
+    const info = document.createElement("div");
+    info.style.cssText = "flex:1;";
+    info.innerHTML = `
+      <div style="font-weight:700;margin-bottom:4px;">${esc(conv.name)}</div>
+      <div style="font-size:.85rem;color:var(--ink-soft);margin-bottom:4px;">${esc(conv.userId)}</div>
+      <div style="font-size:.9rem;color:var(--ink);opacity:.7;">${esc(conv.lastMsg.slice(0, 30))}</div>
+    `;
+    
+    div.appendChild(avatar);
+    div.appendChild(info);
+    list.appendChild(div);
+  });
+}
+
+// 頁面載入時初始化
+renderConversationList();
 
 
 </script>
