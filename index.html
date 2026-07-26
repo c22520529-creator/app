@@ -3052,10 +3052,13 @@ let msgWith = null; // 正在聊天的人的 UID
 let msgUnread = {}; // 未讀訊息計數
 
 async function loadMsgList(){
-  console.log("loadMsgList called, currentSpaceId:", currentSpaceId, "R:", R);
-  if(!currentSpaceId || !R){
-    const list = document.getElementById('msgList');
-    if(list) list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-soft);">還沒有建立本子或人員</div>';
+  const list = document.getElementById('msgList');
+  if(!list) return;
+  
+  console.log("loadMsgList called, currentSpaceId:", currentSpaceId, "typeof R:", typeof R);
+  
+  if(!currentSpaceId || typeof R === 'undefined'){
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-soft);">還沒有進入本子</div>';
     return;
   }
   
