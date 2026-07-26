@@ -664,6 +664,32 @@
   }
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
+  /* 訊息頁 */
+  .msg-list{padding:0;}
+  .msg-item{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer;}
+  .msg-item:active{background:var(--card);}
+  .msg-item .msg-avatar{width:44px;height:44px;border-radius:50%;margin-right:12px;flex-shrink:0;object-fit:cover;background:var(--line);}
+  .msg-item .msg-info{flex:1;min-width:0;}
+  .msg-item .msg-name{font-weight:800;font-size:.9rem;margin-bottom:4px;}
+  .msg-item .msg-preview{font-size:.85rem;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .msg-item .msg-unread{width:10px;height:10px;background:var(--red);border-radius:50%;flex-shrink:0;}
+
+  .msg-header{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);margin-bottom:12px;}
+  .msg-header span{font-weight:800;flex:1;}
+
+  .msg-history{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px;margin-bottom:12px;min-height:200px;}
+  .msg-history .msg-mine{text-align:right;}
+  .msg-history .msg-mine .msg-bubble{background:var(--todo);color:#fff;border-radius:12px 4px 12px 12px;max-width:70%;margin-left:auto;}
+  .msg-history .msg-other .msg-bubble{background:var(--card);border:1px solid var(--line);border-radius:4px 12px 12px 12px;}
+  .msg-bubble{display:inline-block;padding:8px 12px;word-wrap:break-word;font-size:.9rem;max-width:70%;}
+  .msg-time{font-size:.7rem;color:var(--ink-soft);margin-top:2px;}
+
+  .msg-input{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line);}
+  .msg-input input{flex:1;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:.9rem;}
+  .msg-input button{background:var(--todo);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:800;cursor:pointer;font-size:.9rem;}
+
+  .msg-badge{display:inline-block;width:6px;height:6px;background:var(--red);border-radius:50%;margin-left:4px;}
+
   ::-webkit-scrollbar{display:none;}
 </style>
 </head>
@@ -739,6 +765,7 @@
     <button class="tab" data-page="calPage">📅 日曆</button>
     <button class="tab" data-page="peoplePage">👀 大家</button>
     <button class="tab" data-page="gamePage">🎮 遊戲</button>
+    <button class="tab" data-page="msgPage">💬 訊息<span class="msg-badge" style="display:none;"></span></button>
   </div>
 
   <!-- 提醒條（每頁都看得到） -->
@@ -786,6 +813,22 @@
 
     <!-- 遊戲區 -->
     <div id="gameArea"></div>
+  </div>
+
+  <!-- 第五頁：訊息 -->
+  <div id="msgPage" class="page" style="display:none;">
+    <div id="msgList" class="msg-list"></div>
+    <div id="msgChat" class="msg-chat" style="display:none;">
+      <div class="msg-header">
+        <button id="msgBack" style="background:none;border:none;font-size:1.5rem;cursor:pointer;">←</button>
+        <span id="msgName"></span>
+      </div>
+      <div id="msgHistory" class="msg-history"></div>
+      <div class="msg-input">
+        <input type="text" id="msgText" placeholder="輸入訊息...">
+        <button id="msgSend">送出</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2445,7 +2488,12 @@ function goToPage(pageId){
   document.querySelectorAll(".page").forEach(p => p.classList.toggle("show", p.id === pageId));
 }
 document.querySelectorAll(".tab").forEach(tab => {
-  tab.onclick = () => goToPage(tab.dataset.page);
+  tab.onclick = () => {
+    if(tab.dataset.page === 'msgPage'){
+      loadMsgList();
+    }
+    goToPage(tab.dataset.page);
+  };
 });
 
 // ---------- 清單功能 ----------
@@ -2996,6 +3044,170 @@ function renderDayDetail(key){
   }
   detail.innerHTML = html;
 }
+
+
+
+// ========== 訊息功能 ==========
+let msgWith = null; // 正在聊天的人的 UID
+let msgUnread = {}; // 未讀訊息計數
+
+async function loadMsgList(){
+  if(!currentSpaceId) return;
+  
+  // 讀取這本書的所有訊息
+  const snap = await getDoc(doc(db, "spaces", currentSpaceId));
+  const messages = snap.data()?.messages || {};
+  
+  // 找出最近聊過的人
+  const recentPeople = {};
+  Object.entries(messages).forEach(([key, msgs]) => {
+    if(Array.isArray(msgs) && msgs.length > 0){
+      const lastMsg = msgs[msgs.length - 1];
+      const otherUid = key.split('_').find(id => id !== currentUser.uid);
+      if(otherUid && R && R.players){
+        const person = R.players.find(p => p.uid === otherUid);
+        if(person){
+          recentPeople[otherUid] = {
+            name: person.name || "無名",
+            avatar: person.avatar || "",
+            lastMsg: lastMsg.text,
+            time: lastMsg.time,
+            uid: otherUid,
+            unread: (msgUnread[otherUid] || 0)
+          };
+        }
+      }
+    }
+  });
+
+  // 更新未讀紅點
+  const unreadCount = Object.values(msgUnread).reduce((a,b) => a+b, 0);
+  const badge = document.querySelector('.msg-badge');
+  if(badge){
+    badge.style.display = unreadCount > 0 ? "inline-block" : "none";
+  }
+
+  // 顯示人員清單
+  const list = document.getElementById('msgList');
+  if(!list) return;
+  
+  if(Object.keys(recentPeople).length === 0){
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-soft);">還沒有訊息</div>';
+    return;
+  }
+
+  const sorted = Object.values(recentPeople).sort((a,b) => (b.time||0) - (a.time||0));
+  list.innerHTML = sorted.map(p => `
+    <div class="msg-item" onclick="openMsgChat('${p.uid}')">
+      <img class="msg-avatar" src="${p.avatar}">
+      <div class="msg-info">
+        <div class="msg-name">${p.name}</div>
+        <div class="msg-preview">${p.lastMsg}</div>
+      </div>
+      ${p.unread > 0 ? '<div class="msg-unread"></div>' : ''}
+    </div>
+  `).join('');
+}
+
+async function openMsgChat(uid){
+  msgWith = uid;
+  document.getElementById('msgList').style.display = 'none';
+  document.getElementById('msgChat').style.display = 'flex';
+  
+  // 找出人名
+  const person = R.players?.find(p => p.uid === uid);
+  document.getElementById('msgName').textContent = person?.name || "無名";
+
+  // 清空未讀
+  msgUnread[uid] = 0;
+
+  // 載入聊天記錄
+  await loadMsgHistory(uid);
+}
+
+async function loadMsgHistory(uid){
+  const history = document.getElementById('msgHistory');
+  history.innerHTML = '';
+
+  const snap = await getDoc(doc(db, "spaces", currentSpaceId));
+  const messages = snap.data()?.messages || {};
+  
+  // 找出雙方的訊息
+  const key1 = [currentUser.uid, uid].sort().join('_');
+  const key2 = [uid, currentUser.uid].sort().join('_');
+  const msgArray = messages[key1] || messages[key2] || [];
+
+  msgArray.forEach(msg => {
+    const isMe = msg.from === currentUser.uid;
+    history.innerHTML += `
+      <div class="msg-${isMe ? 'mine' : 'other'}">
+        <div class="msg-bubble">${msg.text}</div>
+        <div class="msg-time">${new Date(msg.time).toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'})}</div>
+      </div>
+    `;
+  });
+
+  // 滾到最底
+  setTimeout(() => history.scrollTop = history.scrollHeight, 100);
+}
+
+async function sendMsg(){
+  if(!msgWith || !currentSpaceId) return;
+  
+  const input = document.getElementById('msgText');
+  const text = input.value.trim();
+  if(!text) return;
+
+  input.value = '';
+
+  // 訊息格式
+  const msg = {
+    from: currentUser.uid,
+    text: text,
+    time: Date.now()
+  };
+
+  // 存到 Firebase
+  const key = [currentUser.uid, msgWith].sort().join('_');
+  const msgs = await getDoc(doc(db, "spaces", currentSpaceId))
+    .then(snap => snap.data()?.messages?.[key] || []);
+  
+  msgs.push(msg);
+
+  await updateDoc(doc(db, "spaces", currentSpaceId), {
+    [`messages.${key}`]: msgs
+  }).catch(()=>{});
+
+  // 刷新聊天記錄
+  await loadMsgHistory(msgWith);
+}
+
+// 按鈕事件
+document.addEventListener('DOMContentLoaded', () => {
+  const backBtn = document.getElementById('msgBack');
+  const sendBtn = document.getElementById('msgSend');
+  const input = document.getElementById('msgText');
+
+  if(backBtn){
+    backBtn.onclick = () => {
+      document.getElementById('msgList').style.display = 'block';
+      document.getElementById('msgChat').style.display = 'none';
+      msgWith = null;
+      loadMsgList();
+    };
+  }
+
+  if(sendBtn){
+    sendBtn.onclick = sendMsg;
+  }
+
+  if(input){
+    input.onkeypress = (e) => {
+      if(e.key === 'Enter') sendMsg();
+    };
+  }
+});
+
 
 </script>
 </body>
