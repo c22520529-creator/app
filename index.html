@@ -183,11 +183,12 @@
   .members-bar .mcount{font-size:.78rem;color:var(--ink-soft);font-weight:700;}
   .members-bar .mlist{display:flex;flex-direction:column;gap:8px;}
   .member{
-    display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+    display:flex;align-items:center;gap:12px;width:100%;text-align:left;
     background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;
-    transition:.15s;
+    transition:.15s;cursor:pointer;
   }
-  .member-content{display:flex;align-items:center;gap:12px;flex:1;cursor:pointer;}
+  .member:active{transform:scale(.99);}
+
   .member-content:active{transform:scale(.99);}
   .member:active{transform:scale(.99);}
   .member.active{border-color:var(--todo);background:var(--todo-soft);}
@@ -197,7 +198,7 @@
   .member .emoji-av.fallback{background:var(--wish);color:#fff;font-weight:700;}
   .member .mname{font-size:.95rem;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .member .mtag{font-size:.72rem;color:var(--ink-soft);font-weight:700;background:var(--paper);padding:3px 9px;border-radius:99px;flex-shrink:0;}
-  .msg-btn{background:none;border:none;font-size:1.2rem;cursor:pointer;padding:4px 8px;transition:.15s;}
+
   .msg-btn:active{transform:scale(.9);}
 
   /* 正在看誰的書 橫條 */
@@ -668,35 +669,7 @@
   }
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
-  /* 訊息頁 */
-  /* 訊息頁 */
-  .msg-list{padding:0;}
-  .msg-item{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer;}
-  .msg-item:active{background:var(--card);}
-  .msg-item .msg-avatar{width:44px;height:44px;border-radius:50%;margin-right:12px;flex-shrink:0;object-fit:cover;background:var(--line);}
-  .msg-item .msg-info{flex:1;min-width:0;}
-  .msg-item .msg-name{font-weight:800;font-size:.9rem;margin-bottom:4px;}
-  .msg-item .msg-preview{font-size:.85rem;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .msg-item .msg-unread{width:10px;height:10px;background:var(--red);border-radius:50%;flex-shrink:0;}
-
-  .msg-list{display:block;}
-  .msg-chat{display:none;flex-direction:column;height:100%;width:100%;}
-  .msg-chat.show{display:flex;}
-  .msg-header{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);margin-bottom:12px;}
-  .msg-header span{font-weight:800;flex:1;}
-
-  .msg-history{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px;margin-bottom:12px;min-height:200px;}
-  .msg-history .msg-mine{text-align:right;}
-  .msg-history .msg-mine .msg-bubble{background:var(--todo);color:#fff;border-radius:12px 4px 12px 12px;max-width:70%;margin-left:auto;}
-  .msg-history .msg-other .msg-bubble{background:var(--card);border:1px solid var(--line);border-radius:4px 12px 12px 12px;}
-  .msg-bubble{display:inline-block;padding:8px 12px;word-wrap:break-word;font-size:.9rem;max-width:70%;}
-  .msg-time{font-size:.7rem;color:var(--ink-soft);margin-top:2px;}
-
-  .msg-input{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line);}
-  .msg-input input{flex:1;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:.9rem;}
-  .msg-input button{background:var(--todo);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:800;cursor:pointer;font-size:.9rem;}
-
-  .msg-badge{display:inline-block;width:6px;height:6px;background:var(--red);border-radius:50%;margin-left:4px;}
+  
 
 
   ::-webkit-scrollbar{display:none;}
@@ -774,7 +747,7 @@
     <button class="tab" data-page="calPage">📅 日曆</button>
     <button class="tab" data-page="peoplePage">👀 大家</button>
     <button class="tab" data-page="gamePage">🎮 遊戲</button>
-    <button class="tab" data-page="msgPage">💬 訊息<span class="msg-badge" style="display:none;"></span></button>
+
   </div>
 
   <!-- 提醒條（每頁都看得到） -->
@@ -824,21 +797,7 @@
     <div id="gameArea"></div>
   </div>
 
-  <!-- 第五頁：訊息 -->
-  <div id="msgPage" class="page">
-    <div id="msgList" class="msg-list"></div>
-    <div id="msgChat" class="msg-chat">
-      <div class="msg-header">
-        <button id="msgBack" style="background:none;border:none;font-size:1.5rem;cursor:pointer;">←</button>
-        <span id="msgName"></span>
-      </div>
-      <div id="msgHistory" class="msg-history"></div>
-      <div class="msg-input">
-        <input type="text" id="msgText" placeholder="輸入訊息...">
-        <button id="msgSend">送出</button>
-      </div>
-    </div>
-  </div>
+
 </div>
 
 <!-- 新增彈窗 -->
@@ -1255,14 +1214,19 @@ function renderMembers(spaceData){
           <span class="mname">${esc(name)}</span>
           ${isMe ? '<span class="mtag">我</span>' : '<span class="mtag">看他的書</span>'}
         </div>
-        ${!isMe ? `<button class="msg-btn" onclick="event.stopPropagation(); openMsgChat('${uid}');">💬</button>` : ''}
       </div>`;
   });
   bar.innerHTML = `
     <div class="members-head"><span class="mtitle">👀 看大家</span><span class="mcount">共 ${members.length} 人</span></div>
     <div class="mlist">${cards}</div>`;
 
-  // Event listeners are now inline in the member card
+  bar.querySelectorAll(".member").forEach(btn => {
+    btn.onclick = () => {
+      const uid = btn.dataset.uid;
+      const name = uid === currentUser.uid ? (myProfile.name || "我") : btn.dataset.name;
+      viewItems(uid, name);
+    };
+  });
 }
 
 // 切換看誰的書
@@ -3052,196 +3016,6 @@ function renderDayDetail(key){
 }
 
 
-
-// ========== 訊息功能 ==========
-let msgWith = null; // 正在聊天的人的 UID
-let msgUnread = {}; // 未讀訊息計數
-
-async function loadMsgList(){
-  const list = document.getElementById('msgList');
-  if(!list) return;
-  
-  console.log("loadMsgList called, currentSpaceId:", currentSpaceId, "typeof R:", typeof R);
-  
-  if(!currentSpaceId || typeof R === 'undefined'){
-    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-soft);">還沒有進入本子</div>';
-    return;
-  }
-  
-  // 讀取這本書的所有訊息
-  try {
-    const snap = await getDoc(doc(db, "spaces", currentSpaceId));
-    const messages = snap.data()?.messages || {};
-  
-  // 找出最近聊過的人
-  const recentPeople = {};
-  Object.entries(messages).forEach(([key, msgs]) => {
-    if(Array.isArray(msgs) && msgs.length > 0){
-      const lastMsg = msgs[msgs.length - 1];
-      const otherUid = key.split('_').find(id => id !== currentUser.uid);
-      if(otherUid && R && R.players){
-        const person = R.players.find(p => p.uid === otherUid);
-        if(person){
-          recentPeople[otherUid] = {
-            name: person.name || "無名",
-            avatar: person.avatar || "",
-            lastMsg: lastMsg.text,
-            time: lastMsg.time,
-            uid: otherUid,
-            unread: (msgUnread[otherUid] || 0)
-          };
-        }
-      }
-    }
-  });
-
-  // 更新未讀紅點
-  const unreadCount = Object.values(msgUnread).reduce((a,b) => a+b, 0);
-  const badge = document.querySelector('.msg-badge');
-  if(badge){
-    badge.style.display = unreadCount > 0 ? "inline-block" : "none";
-  }
-
-  // 顯示人員清單
-  const list = document.getElementById('msgList');
-  if(!list) return;
-  
-  if(Object.keys(recentPeople).length === 0){
-    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-soft);">還沒有訊息</div>';
-    return;
-  }
-
-  const sorted = Object.values(recentPeople).sort((a,b) => (b.time||0) - (a.time||0));
-    list.innerHTML = sorted.map(p => `
-      <div class="msg-item" onclick="openMsgChat('${p.uid}')">
-        <img class="msg-avatar" src="${p.avatar}">
-        <div class="msg-info">
-          <div class="msg-name">${p.name}</div>
-          <div class="msg-preview">${p.lastMsg}</div>
-        </div>
-        ${p.unread > 0 ? '<div class="msg-unread"></div>' : ''}
-      </div>
-    `).join('');
-  } catch(e){
-    console.error("loadMsgList error:", e);
-    const list = document.getElementById('msgList');
-    if(list) list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-soft);">載入失敗</div>';
-  }
-}
-
-window.openMsgChat = async function openMsgChat(uid){
-  console.log("openMsgChat called with uid:", uid);
-  msgWith = uid;
-  
-  // 先切到訊息分頁
-  goToPage('msgPage');
-  
-  // 等待 DOM 更新後再處理訊息視窗
-  setTimeout(async () => {
-    const msgList = document.getElementById('msgList');
-    const msgChat = document.getElementById('msgChat');
-    
-    if(msgList) msgList.style.display = 'none';
-    if(msgChat) {
-      msgChat.style.display = 'flex';
-    }
-    
-    // 找出人名
-    let personName = "無名";
-    if(R && R.players){
-      const person = R.players.find(p => p.uid === uid);
-      if(person) personName = person.name || "無名";
-    }
-    
-    const nameSpan = document.getElementById('msgName');
-    if(nameSpan) nameSpan.textContent = personName;
-    
-    // 清空輸入框
-    const input = document.getElementById('msgText');
-    if(input) input.value = '';
-
-    // 清空未讀
-    msgUnread[uid] = 0;
-
-    // 載入聊天記錄
-    await loadMsgHistory(uid);
-  }, 100);
-}
-
-let msgUnsubscribe = null;
-
-async function loadMsgHistory(uid){
-  if(msgUnsubscribe) msgUnsubscribe();
-  
-  const history = document.getElementById('msgHistory');
-  if(!history) return;
-
-  const key = [currentUser.uid, uid].sort().join('_');
-  console.log("Setting up listener for key:", key);
-
-  msgUnsubscribe = onSnapshot(doc(db, "spaces", currentSpaceId), (snap) => {
-    try {
-      const allData = snap.data()?.messages || {};
-      const msgArray = allData[key];
-      
-      console.log("Snapshot triggered, msgArray:", msgArray);
-      
-      // 即使 msgArray 是 undefined 或空数组，也要显示
-      if(!msgArray) {
-        history.innerHTML = '';
-      } else if(Array.isArray(msgArray)) {
-        history.innerHTML = msgArray.map(msg => {
-          if(!msg || !msg.text) return '';
-          const isMe = msg.from === currentUser.uid;
-          const txt = String(msg.text);
-          const t = new Date(msg.time || 0).toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'});
-          return `<div class="msg-${isMe ? 'mine' : 'other'}"><div class="msg-bubble">${txt}</div><div class="msg-time">${t}</div></div>`;
-        }).filter(x => x).join('');
-      }
-      
-      setTimeout(() => history.scrollTop = history.scrollHeight, 50);
-    } catch(e) {
-      console.error("loadMsgHistory snapshot error:", e);
-    }
-  }, (error) => {
-    console.error("onSnapshot error:", error);
-  });
-}
-
-async function sendMsg(){
-  if(!msgWith || !currentSpaceId) return;
-  
-  const input = document.getElementById('msgText');
-  const text = input.value.trim();
-  if(!text) return;
-
-  input.value = '';
-
-  const key = [currentUser.uid, msgWith].sort().join('_');
-  const msg = {
-    from: currentUser.uid,
-    text: text,
-    time: Date.now()
-  };
-
-  try {
-    const snap = await getDoc(doc(db, "spaces", currentSpaceId));
-    const allMsgs = snap.data()?.messages || {};
-    const msgArray = Array.isArray(allMsgs[key]) ? allMsgs[key] : [];
-    
-    msgArray.push(msg);
-    
-    const result = await updateDoc(doc(db, "spaces", currentSpaceId), {
-      [`messages.${key}`]: msgArray
-    });
-    
-    // 保存成功后，立即重新加载以显示消息
-    await new Promise(r => setTimeout(r, 200));
-    await loadMsgHistory(msgWith);
-  } catch(e) {
-    console.error("Save message error:", e);
-  }
-}
 
 // 按鈕事件
 document.addEventListener('DOMContentLoaded', () => {
