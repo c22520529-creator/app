@@ -3171,34 +3171,40 @@ window.openMsgChat = async function openMsgChat(uid){
 let msgUnsubscribe = null;
 
 async function loadMsgHistory(uid){
-  // 停止之前的監聽
   if(msgUnsubscribe) msgUnsubscribe();
   
   const history = document.getElementById('msgHistory');
   if(!history) return;
 
   const key = [currentUser.uid, uid].sort().join('_');
+  console.log("Setting up listener for key:", key);
 
-  // 實時監聽訊息
   msgUnsubscribe = onSnapshot(doc(db, "spaces", currentSpaceId), (snap) => {
-    const messages = snap.data()?.messages || {};
-    const msgArray = messages[key] || [];
-    
-    history.innerHTML = '';
-    msgArray.forEach(msg => {
-      if(!msg || !msg.text) return;
-      const isMe = msg.from === currentUser.uid;
-      const textContent = String(msg.text).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      history.innerHTML += `
-        <div class="msg-${isMe ? 'mine' : 'other'}">
-          <div class="msg-bubble">${textContent}</div>
-          <div class="msg-time">${new Date(msg.time || 0).toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'})}</div>
-        </div>
-      `;
-    });
-
-    // 滾到最底
-    setTimeout(() => history.scrollTop = history.scrollHeight, 100);
+    try {
+      const allData = snap.data()?.messages || {};
+      const msgArray = allData[key];
+      
+      console.log("Snapshot triggered, msgArray:", msgArray);
+      
+      // 即使 msgArray 是 undefined 或空数组，也要显示
+      if(!msgArray) {
+        history.innerHTML = '';
+      } else if(Array.isArray(msgArray)) {
+        history.innerHTML = msgArray.map(msg => {
+          if(!msg || !msg.text) return '';
+          const isMe = msg.from === currentUser.uid;
+          const txt = String(msg.text);
+          const t = new Date(msg.time || 0).toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'});
+          return `<div class="msg-${isMe ? 'mine' : 'other'}"><div class="msg-bubble">${txt}</div><div class="msg-time">${t}</div></div>`;
+        }).filter(x => x).join('');
+      }
+      
+      setTimeout(() => history.scrollTop = history.scrollHeight, 50);
+    } catch(e) {
+      console.error("loadMsgHistory snapshot error:", e);
+    }
+  }, (error) => {
+    console.error("onSnapshot error:", error);
   });
 }
 
@@ -3211,26 +3217,30 @@ async function sendMsg(){
 
   input.value = '';
 
-  // 訊息格式
+  const key = [currentUser.uid, msgWith].sort().join('_');
   const msg = {
     from: currentUser.uid,
     text: text,
     time: Date.now()
   };
 
-  // 存到 Firebase
-  const key = [currentUser.uid, msgWith].sort().join('_');
-  const msgs = await getDoc(doc(db, "spaces", currentSpaceId))
-    .then(snap => snap.data()?.messages?.[key] || []);
-  
-  msgs.push(msg);
-
-  await updateDoc(doc(db, "spaces", currentSpaceId), {
-    [`messages.${key}`]: msgs
-  }).catch(()=>{});
-
-  // 刷新聊天記錄
-  await loadMsgHistory(msgWith);
+  try {
+    const snap = await getDoc(doc(db, "spaces", currentSpaceId));
+    const allMsgs = snap.data()?.messages || {};
+    const msgArray = Array.isArray(allMsgs[key]) ? allMsgs[key] : [];
+    
+    msgArray.push(msg);
+    
+    const result = await updateDoc(doc(db, "spaces", currentSpaceId), {
+      [`messages.${key}`]: msgArray
+    });
+    
+    // 保存成功后，立即重新加载以显示消息
+    await new Promise(r => setTimeout(r, 200));
+    await loadMsgHistory(msgWith);
+  } catch(e) {
+    console.error("Save message error:", e);
+  }
 }
 
 // 按鈕事件
