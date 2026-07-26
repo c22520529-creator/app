@@ -3130,35 +3130,42 @@ async function loadMsgList(){
 }
 
 async function openMsgChat(uid){
+  console.log("openMsgChat called with uid:", uid);
   msgWith = uid;
   
-  // 隱藏列表，顯示聊天窗口
-  const msgList = document.getElementById('msgList');
-  const msgChat = document.getElementById('msgChat');
-  if(msgList) msgList.style.display = 'none';
-  if(msgChat) msgChat.classList.add('show');
-  
-  // 切到訊息分頁
+  // 先切到訊息分頁
   goToPage('msgPage');
   
-  // 找出人名（優先用 R.players，否則查詢 Firebase）
-  let personName = "無名";
-  if(R && R.players){
-    const person = R.players.find(p => p.uid === uid);
-    if(person) personName = person.name || "無名";
-  }
-  
-  document.getElementById('msgName').textContent = personName;
-  
-  // 清空輸入框
-  const input = document.getElementById('msgText');
-  if(input) input.value = '';
+  // 等待 DOM 更新後再處理訊息視窗
+  setTimeout(async () => {
+    const msgList = document.getElementById('msgList');
+    const msgChat = document.getElementById('msgChat');
+    
+    if(msgList) msgList.style.display = 'none';
+    if(msgChat) {
+      msgChat.style.display = 'flex';
+    }
+    
+    // 找出人名
+    let personName = "無名";
+    if(R && R.players){
+      const person = R.players.find(p => p.uid === uid);
+      if(person) personName = person.name || "無名";
+    }
+    
+    const nameSpan = document.getElementById('msgName');
+    if(nameSpan) nameSpan.textContent = personName;
+    
+    // 清空輸入框
+    const input = document.getElementById('msgText');
+    if(input) input.value = '';
 
-  // 清空未讀
-  msgUnread[uid] = 0;
+    // 清空未讀
+    msgUnread[uid] = 0;
 
-  // 載入聊天記錄
-  await loadMsgHistory(uid);
+    // 載入聊天記錄
+    await loadMsgHistory(uid);
+  }, 100);
 }
 
 async function loadMsgHistory(uid){
