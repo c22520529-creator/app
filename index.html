@@ -3168,30 +3168,36 @@ window.openMsgChat = async function openMsgChat(uid){
   }, 100);
 }
 
+let msgUnsubscribe = null;
+
 async function loadMsgHistory(uid){
-  const history = document.getElementById('msgHistory');
-  history.innerHTML = '';
-
-  const snap = await getDoc(doc(db, "spaces", currentSpaceId));
-  const messages = snap.data()?.messages || {};
+  // 停止之前的監聽
+  if(msgUnsubscribe) msgUnsubscribe();
   
-  // 找出雙方的訊息
-  const key1 = [currentUser.uid, uid].sort().join('_');
-  const key2 = [uid, currentUser.uid].sort().join('_');
-  const msgArray = messages[key1] || messages[key2] || [];
+  const history = document.getElementById('msgHistory');
+  if(!history) return;
 
-  msgArray.forEach(msg => {
-    const isMe = msg.from === currentUser.uid;
-    history.innerHTML += `
-      <div class="msg-${isMe ? 'mine' : 'other'}">
-        <div class="msg-bubble">${msg.text}</div>
-        <div class="msg-time">${new Date(msg.time).toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'})}</div>
-      </div>
-    `;
+  const key = [currentUser.uid, uid].sort().join('_');
+
+  // 實時監聽訊息
+  msgUnsubscribe = onSnapshot(doc(db, "spaces", currentSpaceId), (snap) => {
+    const messages = snap.data()?.messages || {};
+    const msgArray = messages[key] || [];
+    
+    history.innerHTML = '';
+    msgArray.forEach(msg => {
+      const isMe = msg.from === currentUser.uid;
+      history.innerHTML += `
+        <div class="msg-${isMe ? 'mine' : 'other'}">
+          <div class="msg-bubble">${msg.text}</div>
+          <div class="msg-time">${new Date(msg.time).toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'})}</div>
+        </div>
+      `;
+    });
+
+    // 滾到最底
+    setTimeout(() => history.scrollTop = history.scrollHeight, 100);
   });
-
-  // 滾到最底
-  setTimeout(() => history.scrollTop = history.scrollHeight, 100);
 }
 
 async function sendMsg(){
