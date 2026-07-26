@@ -2495,9 +2495,6 @@ function goToPage(pageId){
 }
 document.querySelectorAll(".tab").forEach(tab => {
   tab.onclick = () => {
-    if(tab.dataset.page === 'msgPage'){
-      loadMsgList();
-    }
     goToPage(tab.dataset.page);
   };
 });
