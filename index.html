@@ -183,10 +183,12 @@
   .members-bar .mcount{font-size:.78rem;color:var(--ink-soft);font-weight:700;}
   .members-bar .mlist{display:flex;flex-direction:column;gap:8px;}
   .member{
-    display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+    display:flex;align-items:center;gap:8px;width:100%;text-align:left;
     background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;
-    transition:.15s;cursor:pointer;
+    transition:.15s;
   }
+  .member-content{display:flex;align-items:center;gap:12px;flex:1;cursor:pointer;}
+  .member-content:active{transform:scale(.99);}
   .member:active{transform:scale(.99);}
   .member.active{border-color:var(--todo);background:var(--todo-soft);}
   .member .mavatar{width:42px;height:42px;border-radius:50%;flex-shrink:0;}
@@ -195,6 +197,8 @@
   .member .emoji-av.fallback{background:var(--wish);color:#fff;font-weight:700;}
   .member .mname{font-size:.95rem;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .member .mtag{font-size:.72rem;color:var(--ink-soft);font-weight:700;background:var(--paper);padding:3px 9px;border-radius:99px;flex-shrink:0;}
+  .msg-btn{background:none;border:none;font-size:1.2rem;cursor:pointer;padding:4px 8px;transition:.15s;}
+  .msg-btn:active{transform:scale(.9);}
 
   /* 正在看誰的書 橫條 */
   .view-banner{
@@ -1240,23 +1244,20 @@ function renderMembers(spaceData){
     const isMe = uid === currentUser.uid;
     const name = m.name || "成員";
     const active = uid === viewingUid ? "active" : "";
-    cards += `<button class="member ${active}" data-uid="${uid}" data-name="${esc(name)}">
-        ${avatarMarkup(m, "mavatar")}
-        <span class="mname">${esc(name)}</span>
-        ${isMe ? '<span class="mtag">我</span>' : '<span class="mtag">看他的書</span>'}
-      </button>`;
+    cards += `<div class="member ${active}" data-uid="${uid}" data-name="${esc(name)}">
+        <div class="member-content" onclick="viewItems('${uid}', '${esc(name)}')">
+          ${avatarMarkup(m, "mavatar")}
+          <span class="mname">${esc(name)}</span>
+          ${isMe ? '<span class="mtag">我</span>' : '<span class="mtag">看他的書</span>'}
+        </div>
+        ${!isMe ? `<button class="msg-btn" onclick="event.stopPropagation(); openMsgChat('${uid}');">💬</button>` : ''}
+      </div>`;
   });
   bar.innerHTML = `
     <div class="members-head"><span class="mtitle">👀 看大家</span><span class="mcount">共 ${members.length} 人</span></div>
     <div class="mlist">${cards}</div>`;
 
-  bar.querySelectorAll(".member").forEach(btn => {
-    btn.onclick = () => {
-      const uid = btn.dataset.uid;
-      const name = uid === currentUser.uid ? (myProfile.name || "我") : btn.dataset.name;
-      viewItems(uid, name);
-    };
-  });
+  // Event listeners are now inline in the member card
 }
 
 // 切換看誰的書
@@ -3124,13 +3125,25 @@ async function loadMsgList(){
 }
 
 async function openMsgChat(uid){
+  // 先切到訊息分頁
+  goToPage('msgPage');
+  
   msgWith = uid;
   document.getElementById('msgList').style.display = 'none';
   document.getElementById('msgChat').style.display = 'flex';
   
-  // 找出人名
-  const person = R.players?.find(p => p.uid === uid);
-  document.getElementById('msgName').textContent = person?.name || "無名";
+  // 找出人名（優先用 R.players，否則查詢 Firebase）
+  let personName = "無名";
+  if(R && R.players){
+    const person = R.players.find(p => p.uid === uid);
+    if(person) personName = person.name || "無名";
+  }
+  
+  document.getElementById('msgName').textContent = personName;
+  
+  // 清空輸入框
+  const input = document.getElementById('msgText');
+  if(input) input.value = '';
 
   // 清空未讀
   msgUnread[uid] = 0;
