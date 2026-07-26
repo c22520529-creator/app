@@ -1266,7 +1266,7 @@ function renderMembers(spaceData){
 }
 
 // 切換看誰的書
-function viewItems(uid, name){
+window.viewItems = function viewItems(uid, name){
   viewingUid = uid;
   viewingName = name;
   selectedDay = null;
@@ -3129,7 +3129,7 @@ async function loadMsgList(){
   }
 }
 
-async function openMsgChat(uid){
+window.openMsgChat = async function openMsgChat(uid){
   console.log("openMsgChat called with uid:", uid);
   msgWith = uid;
   
