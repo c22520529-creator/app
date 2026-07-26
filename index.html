@@ -3052,11 +3052,17 @@ let msgWith = null; // 正在聊天的人的 UID
 let msgUnread = {}; // 未讀訊息計數
 
 async function loadMsgList(){
-  if(!currentSpaceId) return;
+  console.log("loadMsgList called, currentSpaceId:", currentSpaceId, "R:", R);
+  if(!currentSpaceId || !R){
+    const list = document.getElementById('msgList');
+    if(list) list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-soft);">還沒有建立本子或人員</div>';
+    return;
+  }
   
   // 讀取這本書的所有訊息
-  const snap = await getDoc(doc(db, "spaces", currentSpaceId));
-  const messages = snap.data()?.messages || {};
+  try {
+    const snap = await getDoc(doc(db, "spaces", currentSpaceId));
+    const messages = snap.data()?.messages || {};
   
   // 找出最近聊過的人
   const recentPeople = {};
@@ -3097,16 +3103,21 @@ async function loadMsgList(){
   }
 
   const sorted = Object.values(recentPeople).sort((a,b) => (b.time||0) - (a.time||0));
-  list.innerHTML = sorted.map(p => `
-    <div class="msg-item" onclick="openMsgChat('${p.uid}')">
-      <img class="msg-avatar" src="${p.avatar}">
-      <div class="msg-info">
-        <div class="msg-name">${p.name}</div>
-        <div class="msg-preview">${p.lastMsg}</div>
+    list.innerHTML = sorted.map(p => `
+      <div class="msg-item" onclick="openMsgChat('${p.uid}')">
+        <img class="msg-avatar" src="${p.avatar}">
+        <div class="msg-info">
+          <div class="msg-name">${p.name}</div>
+          <div class="msg-preview">${p.lastMsg}</div>
+        </div>
+        ${p.unread > 0 ? '<div class="msg-unread"></div>' : ''}
       </div>
-      ${p.unread > 0 ? '<div class="msg-unread"></div>' : ''}
-    </div>
-  `).join('');
+    `).join('');
+  } catch(e){
+    console.error("loadMsgList error:", e);
+    const list = document.getElementById('msgList');
+    if(list) list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-soft);">載入失敗</div>';
+  }
 }
 
 async function openMsgChat(uid){
