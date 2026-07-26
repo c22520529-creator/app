@@ -669,6 +669,7 @@
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
   /* 訊息頁 */
+  /* 訊息頁 */
   .msg-list{padding:0;}
   .msg-item{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer;}
   .msg-item:active{background:var(--card);}
@@ -678,6 +679,9 @@
   .msg-item .msg-preview{font-size:.85rem;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .msg-item .msg-unread{width:10px;height:10px;background:var(--red);border-radius:50%;flex-shrink:0;}
 
+  .msg-list{display:block;}
+  .msg-chat{display:none;flex-direction:column;height:100%;width:100%;}
+  .msg-chat.show{display:flex;}
   .msg-header{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);margin-bottom:12px;}
   .msg-header span{font-weight:800;flex:1;}
 
@@ -693,6 +697,7 @@
   .msg-input button{background:var(--todo);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:800;cursor:pointer;font-size:.9rem;}
 
   .msg-badge{display:inline-block;width:6px;height:6px;background:var(--red);border-radius:50%;margin-left:4px;}
+
 
   ::-webkit-scrollbar{display:none;}
 </style>
@@ -820,9 +825,9 @@
   </div>
 
   <!-- 第五頁：訊息 -->
-  <div id="msgPage" class="page" style="display:none;">
+  <div id="msgPage" class="page">
     <div id="msgList" class="msg-list"></div>
-    <div id="msgChat" class="msg-chat" style="display:none;">
+    <div id="msgChat" class="msg-chat">
       <div class="msg-header">
         <button id="msgBack" style="background:none;border:none;font-size:1.5rem;cursor:pointer;">←</button>
         <span id="msgName"></span>
@@ -3125,12 +3130,16 @@ async function loadMsgList(){
 }
 
 async function openMsgChat(uid){
-  // 先切到訊息分頁
-  goToPage('msgPage');
-  
   msgWith = uid;
-  document.getElementById('msgList').style.display = 'none';
-  document.getElementById('msgChat').style.display = 'flex';
+  
+  // 隱藏列表，顯示聊天窗口
+  const msgList = document.getElementById('msgList');
+  const msgChat = document.getElementById('msgChat');
+  if(msgList) msgList.style.display = 'none';
+  if(msgChat) msgChat.classList.add('show');
+  
+  // 切到訊息分頁
+  goToPage('msgPage');
   
   // 找出人名（優先用 R.players，否則查詢 Firebase）
   let personName = "無名";
@@ -3217,8 +3226,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if(backBtn){
     backBtn.onclick = () => {
-      document.getElementById('msgList').style.display = 'block';
-      document.getElementById('msgChat').style.display = 'none';
+      const msgList = document.getElementById('msgList');
+      const msgChat = document.getElementById('msgChat');
+      if(msgList) msgList.style.display = 'block';
+      if(msgChat) msgChat.classList.remove('show');
       msgWith = null;
       loadMsgList();
     };
