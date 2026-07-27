@@ -127,6 +127,8 @@
   .tab:active{transform:scale(.96);}
 
   .page{display:none;flex:1;padding:6px 18px 60px;overflow-y:auto;}
+  #msgPage{display:none !important;flex-direction:column !important;}
+  #msgPage.show{display:flex !important;padding:0 !important;}
   .page.show{display:block;}
 
   /* 清單頁 */
@@ -789,7 +791,7 @@
   </div>
 
   <!-- 第五頁：訊息 -->
-  <div class="page" id="msgPage" style="display:flex;flex-direction:column;">
+  <div class="page" id="msgPage">
     <!-- 對話列表視圖 -->
     <div id="msgListView" style="padding:16px;overflow-y:auto;flex:1;">
       <!-- 搜索框 -->
